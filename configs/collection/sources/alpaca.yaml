@@ -1,0 +1,22 @@
+# Alpaca 美股（密钥在仓库根目录 .env，勿写进本文件）
+venue: alpaca
+market_type: stock
+data_base: https://data.alpaca.markets
+trade_base: https://paper-api.alpaca.markets
+# feed 同时作用于 bars / quotes / trades
+# sip=全市场（免费档 end 距现在须 ≥约 15 分钟，适配器会截断）；iex=仅 IEX、可更接近实时
+feed: sip
+# 复权：raw | split | dividend | all（仅 bars）
+adjustment: split
+# OHLCV 默认周期（CLI 未传 --tf 时用此处；未声明则回落 collect.yaml 的 timeframes）
+# 美股默认 1d：日线体量小、适合中低频研究；分钟线请求量大、落盘也大，需要时用 --tf 1m/5m 覆盖
+timeframes:
+  - 1m
+symbols:
+  # - AAPL
+  # - MSFT
+  # - GOOGL
+  - SPY
+  - QQQ
+  - IWM
+  - SOXX

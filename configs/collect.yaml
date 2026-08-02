@@ -1,0 +1,18 @@
+# 采集总配置
+data_dir: data
+catalog_path: data/catalog.sqlite
+
+# 参与采集的 source（对应 configs/collection/sources/*.yaml）。
+# source 是一份采集配置；canonical venue 由各 source 文件中的 venue 字段决定。
+sources:
+  - binance_perp
+  - binance_spot
+  - hyperliquid
+  - alpaca
+
+# 以下为未在 source 配置中声明 timeframes 时的回落默认
+timeframes:
+  - 1h
+
+# 默认回填天数（相对现在）
+backfill_days: 7

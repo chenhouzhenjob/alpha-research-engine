@@ -1,0 +1,24 @@
+# 可复现的 OHLCV 特征、策略与 bar 级回测实验
+run_id: moving-average-cross
+feature_set: moving-average-cross-v1
+data:
+  venue: binance
+  symbol_raw: BTCUSDT
+  tf: 1h
+features:
+  - type: sma
+    window: 10
+  - type: sma
+    window: 20
+  - type: return
+    periods: 1
+strategy:
+  type: moving_average_cross
+  fast_feature: sma_10
+  slow_feature: sma_20
+  long_only: true
+backtest:
+  initial_cash: 100000
+  fee_bps: 2
+  slippage_bps: 1
+  max_gross_leverage: 1

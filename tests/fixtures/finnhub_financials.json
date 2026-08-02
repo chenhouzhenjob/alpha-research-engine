@@ -1,0 +1,18 @@
+{
+  "symbol": "AAPL",
+  "financials": [
+    {
+      "period": "2023-09-30",
+      "year": 2023,
+      "revenue": 383285000000,
+      "netIncome": 96995000000,
+      "grossIncome": 169148000000
+    },
+    {
+      "period": "2022-09-24",
+      "year": 2022,
+      "revenue": 394328000000,
+      "netIncome": 99803000000
+    }
+  ]
+}

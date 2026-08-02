@@ -1,0 +1,18 @@
+# 币安原生接口；永续与现货共用本配置文件，通过市场配置选择数据类型。
+venue: binance
+enable_rate_limit: true
+markets:
+  perp:
+    # USDT-M 永续合约
+    rest_base: https://fapi.binance.com
+    ws_base: wss://fstream.binance.com
+    symbols:
+      - BTCUSDT
+      - ETHUSDT
+  spot:
+    # 现货
+    rest_base: https://api.binance.com
+    ws_base: wss://stream.binance.com:9443
+    symbols:
+      - BTCUSDT
+      - ETHUSDT

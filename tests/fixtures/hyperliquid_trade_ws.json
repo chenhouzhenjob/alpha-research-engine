@@ -1,0 +1,14 @@
+{
+  "channel": "trades",
+  "data": [
+    {
+      "coin": "BTC",
+      "side": "B",
+      "px": "37000.5",
+      "sz": "0.01",
+      "time": 1700000000100,
+      "hash": "0xabc",
+      "tid": 42
+    }
+  ]
+}

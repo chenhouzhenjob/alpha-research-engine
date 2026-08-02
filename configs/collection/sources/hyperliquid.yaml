@@ -1,0 +1,9 @@
+# Hyperliquid Info / WS
+venue: hyperliquid
+market_type: perp
+info_url: https://api.hyperliquid.xyz/info
+ws_url: wss://api.hyperliquid.xyz/ws
+# coin 名（symbol_raw）
+symbols:
+  - BTC
+  - ETH

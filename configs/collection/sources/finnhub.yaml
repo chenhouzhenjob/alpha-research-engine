@@ -1,0 +1,24 @@
+# Finnhub 美股公司基本面（密钥在仓库根目录 .env：FINNHUB_API_KEY）
+venue: finnhub
+market_type: stock
+rest_base: https://finnhub.io/api/v1
+# 与 Alpaca 标的对齐，便于按 symbol_raw 联查
+symbols:
+  - AAPL
+  - MSFT
+  - GOOGL
+# 标准化报表 /stock/financials：免费档通常 403，默认关闭；付费后再开
+fetch_financials: false
+# 仅当 fetch_financials=true 时使用：ic=利润表 bs=资产负债表 cf=现金流
+statements:
+  - ic
+  - bs
+  - cf
+frequencies:
+  - annual
+  - quarterly
+# 免费档可用：关键指标 + 盈利意外
+fetch_metric: true
+fetch_earnings: true
+# 客户端限流：每分钟最多请求数（免费档 60，留余量）
+max_requests_per_minute: 50

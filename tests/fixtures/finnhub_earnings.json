@@ -1,0 +1,12 @@
+[
+  {
+    "actual": 1.52,
+    "estimate": 1.43,
+    "period": "2024-03-31",
+    "quarter": 2,
+    "surprise": 0.09,
+    "surprisePercent": 6.2937,
+    "symbol": "AAPL",
+    "year": 2024
+  }
+]
