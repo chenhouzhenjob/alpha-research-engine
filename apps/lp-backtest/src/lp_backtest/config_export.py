@@ -1,4 +1,4 @@
-"""1f 产物输出：把 `features/composite_score.py` 里的真实权重/阈值常量导出成
+"""1f 产物输出：把 `alpha_metrics.models.composite_score` 里的真实权重/阈值常量导出成
 alpha-lp 可消费的版本化 JSON 配置。
 
 **只导出代码里已经在用的常量，不在这里重新抄一遍数字**——权重/阈值只有一份来源
@@ -18,8 +18,7 @@ import logging
 from datetime import UTC, datetime
 
 import click
-
-from .models.composite_score import AGE_PENALTY_WEIGHT, NORMALIZED_COMPONENT_WEIGHTS, TIER_THRESHOLDS
+from alpha_metrics.models.composite_score import AGE_PENALTY_WEIGHT, NORMALIZED_COMPONENT_WEIGHTS, TIER_THRESHOLDS
 
 logger = logging.getLogger(__name__)
 

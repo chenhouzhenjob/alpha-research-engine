@@ -67,6 +67,29 @@ def test_read_fee_protocol_decodes_packed_value():
     assert fee_protocol1 == 3300
 
 
+class _FakeAdapterSlot0PriceAndTick:
+    """模拟 `slot0()` 返回真实 BTC/USDT Swap 日志验证过的 sqrtPriceX96/tick 组合
+    （跟 test_tick_math.py 用的同一条真实数据，tick=-110528，两个 token 都是 18 位小数）。
+    """
+
+    SQRT_PRICE_X96 = 315443755530133020918675949
+    TICK = -110528
+
+    def call(self, *, to: str, data: str) -> bytes:
+        word0 = self.SQRT_PRICE_X96.to_bytes(32, "big")
+        word1 = self.TICK.to_bytes(32, "big", signed=True)
+        return word0 + word1 + b"\x00" * 32 * 5  # 后面 5 个字（本方法不关心）随便填零
+
+
+def test_read_slot0_price_and_tick_decodes_real_btc_usdt_swap():
+    plugin = PancakeswapV3Plugin()
+    price, tick = plugin.read_slot0_price_and_tick(
+        _FakeAdapterSlot0PriceAndTick(), POOL, decimals0=18, decimals1=18
+    )
+    assert tick == -110528
+    assert 50_000 < 1 / price < 80_000
+
+
 def test_read_cake_emission_when_farm_active():
     plugin = PancakeswapV3Plugin()
     result = plugin.read_cake_emission(_FakeAdapterCakeEmissionActive(), POOL)

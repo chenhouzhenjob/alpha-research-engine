@@ -13,6 +13,7 @@ alpha-chains = { workspace = true }
 alpha-datasources = { workspace = true }
 alpha-protocols = { workspace = true }
 alpha-storage = { workspace = true }
+alpha-metrics = { workspace = true }
 
 [tool.pyright]
 pythonVersion = "3.13"
@@ -24,7 +25,9 @@ extraPaths = [
   "packages/chains/src",
   "packages/datasources/src",
   "packages/protocols/src",
+  "packages/metrics/src",
   "apps/lp-backtest/src",
+  "apps/live-signal/src",
 ]
 
 [tool.ruff]

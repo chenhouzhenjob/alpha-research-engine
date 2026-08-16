@@ -10,7 +10,7 @@ from __future__ import annotations
 # 地址已逐个通过 GeckoTerminal /tokens/multi 校验 symbol 匹配。
 WHITELIST_TOKENS_BSC: frozenset[str] = frozenset(
     {
-        "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",  # CAKE
+        # "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",  # CAKE
         "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",  # WBNB
         "0x55d398326f99059ff775485246999027b3197955",  # USDT
         "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",  # USDC

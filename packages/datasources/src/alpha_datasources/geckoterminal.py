@@ -21,7 +21,7 @@ import requests
 from alpha_core.errors import DataSourceUnavailableError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from .base import MarketDataSource, OhlcvPoint, PoolMarketSnapshot
+from .base import MarketDataSource, MinuteOhlcvPoint, OhlcvPoint, PoolMarketSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +144,34 @@ class GeckoTerminalClient(MarketDataSource):
             for row in rows
         ]
         return sorted(points, key=lambda p: p.day)
+
+    def get_minute_ohlcv(self, pool_address: str, *, limit: int = 10) -> list[MinuteOhlcvPoint]:
+        """按分钟拉取该池子最近 `limit` 根 1 分钟 K 线，币种口径同 `get_daily_ohlcv`
+        （`currency=token`，理由一致：跟 `get_pool_snapshots` 用同一个量纲，避免拼出假的价格跳变）。
+
+        用这个替代自己订阅 Swap 事件 + 现场聚合（`lp_backtest.aggregate_candles` 的旧路径）——
+        GeckoTerminal 自己的索引管线已经把这件事做了，实测延迟约 2 分钟，比自建 WSS 订阅+聚合
+        简单得多，见 apps/live-signal 的部署记录。`swap_events`/WebSocket 订阅仍然保留，
+        但只用来采集逐笔明细供未来风控信号（如大户集中度）用，不再是 K 线的数据来源。
+        """
+        try:
+            payload = self._get(
+                f"/networks/{self._network}/pools/{pool_address}/ohlcv/minute",
+                params={"aggregate": 1, "limit": limit, "currency": "token"},
+            )
+        except DataSourceUnavailableError:
+            logger.warning("GeckoTerminal 该池子无分钟级 OHLCV 数据: %s", pool_address)
+            return []
+        rows = payload.get("data", {}).get("attributes", {}).get("ohlcv_list", [])
+        points = [
+            MinuteOhlcvPoint(
+                ts_event=datetime.fromtimestamp(row[0], tz=UTC),
+                open=row[1],
+                high=row[2],
+                low=row[3],
+                close=row[4],
+                volume=row[5],
+            )
+            for row in rows
+        ]
+        return sorted(points, key=lambda p: p.ts_event)

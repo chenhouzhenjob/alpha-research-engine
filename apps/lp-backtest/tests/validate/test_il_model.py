@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from lp_backtest.features.volatility import MIN_CLOSE_OBSERVATIONS
+from alpha_metrics.features.volatility import MIN_CLOSE_OBSERVATIONS
 from lp_backtest.validate.il_model import collect_samples
 
 

@@ -9,6 +9,7 @@ dependencies = [
   "alpha-protocols",
   "alpha-datasources",
   "alpha-storage",
+  "alpha-metrics",
   "click>=8.1",
   "python-dotenv>=1.0",
 ]
@@ -22,6 +23,8 @@ lp-backtest-validate-il-model = "lp_backtest.validate.il_model:main"
 lp-backtest-validate-range-backtest = "lp_backtest.validate.range_backtest:main"
 lp-backtest-calibrate-weights = "lp_backtest.calibrate.weights:main"
 lp-backtest-export-config = "lp_backtest.config_export:main"
+lp-backtest-register-pool = "lp_backtest.register_pool:main"
+lp-backtest-aggregate-candles = "lp_backtest.aggregate_candles:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -36,3 +39,4 @@ alpha-chains = { workspace = true }
 alpha-protocols = { workspace = true }
 alpha-datasources = { workspace = true }
 alpha-storage = { workspace = true }
+alpha-metrics = { workspace = true }

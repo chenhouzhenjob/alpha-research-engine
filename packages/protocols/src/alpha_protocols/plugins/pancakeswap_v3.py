@@ -16,18 +16,27 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from alpha_chains.base import ChainAdapter, LogEntry
-from alpha_core.models import PoolCandidate
+from alpha_core.instrument_id import MarketType, build_instrument_id
+from alpha_core.models import PoolCandidate, SwapEvent
 from alpha_core.types import Chain, DexId, PoolCandidateStatus
 from eth_abi import decode as abi_decode
 from eth_abi import encode as abi_encode
 from web3 import Web3
 
 from ..base import FactoryDiscoveryPlugin
+from ..tick_math import price_from_sqrt_price_x96
 
 # BSC 上的 PancakeSwap V3 Factory 地址，取自 alpha-lp packages/config（bscPancakeV3Deployment.factory）。
 FACTORY_ADDRESS = "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"
 
 _POOL_CREATED_SIGNATURE = "PoolCreated(address,address,uint24,int24,address)"
+
+# 注意：PancakeSwap V3 的 `Swap` 事件比原版 Uniswap V3 的 5 参数版本多两个尾部字段
+# （protocolFeesToken0/protocolFeesToken1，各 uint128）——不是抄 Uniswap V3 的签名。
+# 已用 Web3.keccak 计算并对照 BTC/USDT 池子（0x46cf1c...）真实链上日志验证过：
+# topic0 和实测日志一致，7 个字段按此签名解出的 amount0/amount1/tick/sqrtPriceX96 换算出的
+# 价格（~63104 USDT/BTC）和交易方向也都在合理量级（见实施记录）。
+_SWAP_SIGNATURE = "Swap(address,address,int256,int256,uint160,uint128,int24,uint128,uint128)"
 
 # PancakeSwap V3 官方公开宣布的 BSC 主网上线日期是 2023-04-03（多个新闻源报道于 2023-03-06~04-08 之间，
 # 见 lp-backtest 实现记录）。这里往前多留两周安全余量，只是"扫描起点不会晚于真实部署"的下界，
@@ -95,6 +104,47 @@ class PancakeswapV3Plugin(FactoryDiscoveryPlugin):
             status=PoolCandidateStatus.DISCOVERED,
         )
 
+    def swap_topic0(self) -> str:
+        return Web3.keccak(text=_SWAP_SIGNATURE).to_0x_hex()
+
+    def decode_swap_event(self, log: LogEntry, *, fetched_at: datetime, block_time: datetime) -> SwapEvent:
+        """解码 `Swap` 事件。`liquidity`（成交后活跃流动性）和两个协议费尾部字段
+        （protocolFeesToken0/1）当前 schema 没有对应列，解出来后不落库——阶段 0 只需要
+        价格（`sqrtPriceX96`/`tick`）和成交量（`amount0`/`amount1`），见 SCHEMA.md 第 7 节。
+
+        @param fetched_at 实际捕获时间（订阅收到/补拉到的时间），调用方传入而不是这里
+        取当前时间——方便断线回填场景传入日志所在区块的真实时间而不是"现在"
+        @param block_time 出块时间（K 线聚合分桶用）。WebSocket 路径通常能从 `log.block_time`
+        直接拿到（订阅 payload 免费带的），HTTP 回填路径需要调用方自己用
+        `ChainAdapter.get_block_timestamp` 补齐——这里不做这个选择，调用方决定，因为只有调用方
+        知道这条日志是走哪条路径来的
+        """
+        # topics: [topic0, sender, recipient]；data: 7 个非 indexed 参数（见模块级签名注释）
+        _topic0, sender_topic, recipient_topic = log.topics
+        amount0, amount1, sqrt_price_x96, _liquidity, tick, _fee0, _fee1 = abi_decode(
+            ["int256", "int256", "uint160", "uint128", "int24", "uint128", "uint128"],
+            bytes.fromhex(log.data.removeprefix("0x")),
+        )
+        instrument_id = build_instrument_id(
+            venue=self.dex_id.value, market_type=MarketType.DEX_POOL, symbol_raw=log.address
+        )
+        return SwapEvent(
+            chain=self.chain,
+            pool_address=log.address,
+            instrument_id=instrument_id,
+            tx_hash=log.transaction_hash,
+            log_index=log.log_index,
+            block_number=log.block_number,
+            sender=_topic_to_address(sender_topic.removeprefix("0x")),
+            recipient=_topic_to_address(recipient_topic.removeprefix("0x")),
+            amount0=amount0,
+            amount1=amount1,
+            sqrt_price_x96_after=sqrt_price_x96,
+            tick_after=tick,
+            fetched_at=fetched_at,
+            block_time=block_time,
+        )
+
     def find_pool_by_tokens(
         self, adapter: ChainAdapter, token_a: str, token_b: str, fee: int
     ) -> PoolCandidate | None:
@@ -148,6 +198,23 @@ class PancakeswapV3Plugin(FactoryDiscoveryPlugin):
         word5 = result[5 * 32 : 6 * 32]
         packed = int.from_bytes(word5, "big")
         return packed & 0xFFFF, (packed >> 16) & 0xFFFF
+
+    def read_slot0_price_and_tick(
+        self, adapter: ChainAdapter, pool_address: str, decimals0: int, decimals1: int
+    ) -> tuple[float, int]:
+        """读取池子当前的实时价格与 tick，一次 `eth_call` 查完（`slot0()` 前两个字，
+        word[0]=sqrtPriceX96、word[1]=tick，跟 `read_fee_protocol` 解的是同一个返回值的
+        不同字段——只是那个方法只取了 word[5]，这里取 word[0]/word[1]）。
+
+        @returns (price, tick)；price 是 token1/token0 的人类可读价格（`price_from_sqrt_price_x96`）。
+        用于退出信号 5（累计已实现 IL），价格变化比 feeProtocol/CAKE 排放快得多，
+        调用方不应该像 `read_fee_protocol_safe` 那样缓存 5 分钟，只应短缓存（10-15 秒）或不缓存。
+        """
+        result = adapter.call(to=pool_address, data="0x" + _SLOT0_SELECTOR.hex())
+        sqrt_price_x96 = int.from_bytes(result[0:32], "big")
+        tick = int.from_bytes(result[32:64], "big", signed=True)
+        price = price_from_sqrt_price_x96(sqrt_price_x96, decimals0, decimals1)
+        return price, tick
 
     def read_cake_emission(self, adapter: ChainAdapter, pool_address: str) -> tuple[float, float] | None:
         """读取该池当前的 CAKE 挖矿排放速率与"参与挖矿的流动性占比"（均为链上当前快照值）。

@@ -32,6 +32,23 @@ class OhlcvPoint:
     volume: float  # 计价货币口径的成交量（见各数据源实现说明其具体单位）
 
 
+@dataclass(frozen=True)
+class MinuteOhlcvPoint:
+    """一根分钟线 K 线。跟 `OhlcvPoint`（日线）分开定义——字段名 `ts_event`（不是 `day`），
+    因为它最终流向的是 `pool_ohlcv` 表（`instrument_id`+`tf`+`ts_event` 体系），跟日线流向的
+    `pool_metrics_history`（`chain`+`pool_address`+`snapshot_date`）是两套独立的下游，
+    不是同一个概念缩小粒度。不放进 `MarketDataSource` 抽象接口——不是所有数据源都保证有
+    分钟级数据，见 `GeckoTerminalClient.get_minute_ohlcv`。
+    """
+
+    ts_event: datetime  # K 线开盘时间
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
 class MarketDataSource(ABC):
     """行情数据源统一接口。"""
 

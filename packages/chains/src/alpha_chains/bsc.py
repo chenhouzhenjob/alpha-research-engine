@@ -11,10 +11,12 @@ import os
 from alpha_core.types import Chain
 
 from .evm_common import EvmChainAdapter
+from .evm_websocket import EvmWebSocketSubscriber
 
 BSC_CHAIN_ID = 56
 RPC_URLS_ENV = "BNB_RPC_URLS"
 LOG_CHUNK_SIZE_ENV = "BNB_LOG_CHUNK_SIZE"
+WSS_URL_ENV = "BNB_WSS_URL"
 
 # 实测 alpha-lp 生产 BNB_RPC_URLS 配置的 RPC 单次 eth_getLogs 最多接受 50000 个区块
 # （报错信息为 "exceed maximum block range: 50000"）。取略低于上限的保守值作为 BSC 专用默认值，
@@ -42,3 +44,18 @@ def build_bsc_adapter() -> EvmChainAdapter:
     return EvmChainAdapter(
         chain=Chain.BSC, rpc_urls=rpc_urls, is_poa=True, log_chunk_size=log_chunk_size
     )
+
+
+def build_bsc_wss_subscriber() -> EvmWebSocketSubscriber:
+    """从环境变量构造 BSC 的 WebSocket 订阅器。
+
+    阶段 0 只支持单个端点（`BNB_WSS_URL`），不像 `build_bsc_adapter` 那样支持逗号分隔的
+    多端点故障转移——`EvmWebSocketSubscriber` 本身的多端点能力是已知的范围缩减
+    （见 evm_websocket 模块文档），以后要支持时在这里改，不需要动调用方。
+
+    @raises ValueError `BNB_WSS_URL` 未配置
+    """
+    wss_url = os.environ.get(WSS_URL_ENV, "").strip()
+    if not wss_url:
+        raise ValueError(f"环境变量 {WSS_URL_ENV} 未配置，无法构造 BSC WebSocket 订阅器")
+    return EvmWebSocketSubscriber(wss_url)

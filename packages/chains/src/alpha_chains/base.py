@@ -21,6 +21,12 @@ class LogEntry:
     block_number: int
     log_index: int
     transaction_hash: str
+    removed: bool = False  # 该日志是否因链重组被撤销；只有 WebSocket 订阅会推送 True
+    # （eth_getLogs 按定义只返回查询时刻仍然有效的日志），调用方看到 True 必须丢弃，不能落库当真实成交
+    block_time: datetime | None = None  # 出块时间；只有 WebSocket 订阅会免费带上这个字段
+    # （NodeReal 的订阅 payload 里有 blockTimestamp，见 evm_websocket 模块文档），get_logs（HTTP）
+    # 拿到的日志这里恒为 None——调用方需要时间戳又拿到 None，就该自己调 get_block_timestamp 补，
+    # 不要假设这个字段一定有值
 
 
 class ChainAdapter(ABC):

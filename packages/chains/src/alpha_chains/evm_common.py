@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+import requests
 from alpha_core.errors import ChainAdapterError
 from alpha_core.types import Chain
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -22,6 +23,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_LOG_CHUNK_SIZE = 2_000
 
 _RETRYABLE_EXCEPTIONS = (Web3RPCError, ConnectionError, TimeoutError)
+
+# 故障转移（切到下一个端点）额外认的异常类型，比"同一端点值得重试"的 _RETRYABLE_EXCEPTIONS 更宽：
+# HTTP 层错误（`requests.exceptions.HTTPError`，如 429/5xx）不属于瞬时抖动，重试同一个端点没有
+# 意义（真实踩过：NodeReal 月度 CU 配额用完，返回 429，在下个计费周期重置前重试多少次都一样），
+# 但换一个端点完全可能是好的——这里只加进故障转移的异常集合，不加进 _RETRYABLE_EXCEPTIONS，
+# 避免在明知没用的同一个端点上先浪费几次重试才切换。
+_FAILOVER_EXCEPTIONS = (*_RETRYABLE_EXCEPTIONS, requests.exceptions.HTTPError)
 
 
 def _retrying():
@@ -64,7 +72,7 @@ class EvmChainAdapter(ChainAdapter):
         for client in self._clients:
             try:
                 return fn(client)
-            except _RETRYABLE_EXCEPTIONS as exc:  # noqa: PERF203 - 端点数量很小，性能可忽略
+            except _FAILOVER_EXCEPTIONS as exc:  # noqa: PERF203 - 端点数量很小，性能可忽略
                 last_error = exc
                 logger.warning("RPC 端点调用失败，切换下一个: %s", exc)
         raise ChainAdapterError(f"{self.chain} 全部 RPC 端点均失败") from last_error

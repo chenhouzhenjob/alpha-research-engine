@@ -41,3 +41,12 @@ class PoolCandidateStatus(StrEnum):
     DISCOVERED = "discovered"  # 已通过 Factory PoolCreated 事件发现，尚未判定是否达到准入门槛
     QUALIFIED = "qualified"  # 已过硬性准入门槛（TVL/volume/池龄/token 白名单），参与后续指标计算与打分
     REJECTED = "rejected"  # 未达门槛，不产生分数、不纳入 pool_metrics_history 采集范围
+
+
+class AssetClass(StrEnum):
+    """候选池的资产类型，决定 RWA 专属特征/模型（参考价、TrackingError、GapJump）要不要跑。
+    见 research/docs/live-signal-system-设计方案.md 第 3.6 节及 asset_class 相关设计。
+    """
+
+    CRYPTO_NATIVE = "crypto_native"  # 加密原生资产对（如 BTC/USDT），不需要任何 RWA 专属模块
+    RWA = "rwa"  # 锚定真实世界资产的代币化凭证（如 QQQB），需要参考价数据源等专属处理

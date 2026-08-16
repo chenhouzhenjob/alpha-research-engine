@@ -10,7 +10,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from alpha_core.types import Chain, DexId, PoolCandidateStatus
+from alpha_core.instrument_id import build_instrument_id
+from alpha_core.types import AssetClass, Chain, DexId, PoolCandidateStatus
 
 
 def _normalize_address(value: str) -> str:
@@ -56,11 +57,94 @@ class PoolCandidate(BaseModel):
     created_at_block: int = Field(ge=0)  # PoolCreated 事件所在区块号
     created_at: datetime | None = None  # 区块时间戳；按需懒加载获得，未回填前为 None（见 7.4 懒加载约束）
     status: PoolCandidateStatus = PoolCandidateStatus.DISCOVERED
+    asset_class: AssetClass = AssetClass.CRYPTO_NATIVE  # 资产类型，决定 RWA 专属特征/模型要不要跑
 
     @field_validator("pool_address", "token0_address", "token1_address")
     @classmethod
     def _validate_address(cls, v: str) -> str:
         return _normalize_address(v)
+
+
+class Instrument(BaseModel):
+    """`instruments` 目录表的领域表示。字段命名对齐 `alpha-research-engine` 的 envelope 约定，
+    见 research/docs/live-signal-system-设计方案.md。本期只覆盖链上 DEX 池子这一种 `market_type`。
+    """
+
+    model_config = {"frozen": True}
+
+    venue: str  # 如 "pancakeswap-v3-bsc"，本期取值对齐 DexId
+    market_type: str  # 本期只有 "dex_pool"，开放字符串
+    base: str  # base token 地址，统一小写存储
+    quote: str  # quote token 地址
+    settle: str | None = None  # 链上 AMM 没有独立结算资产概念，恒为 None
+    symbol_raw: str  # 链上场景下就是池子地址
+    chain: Chain
+    listed_at: datetime | None = None
+    delisted_at: datetime | None = None
+    meta_json: dict | None = None
+
+    @field_validator("base", "quote", "symbol_raw")
+    @classmethod
+    def _validate_address(cls, v: str) -> str:
+        return _normalize_address(v)
+
+    @property
+    def instrument_id(self) -> str:
+        return build_instrument_id(venue=self.venue, market_type=self.market_type, symbol_raw=self.symbol_raw)
+
+
+class SwapEvent(BaseModel):
+    """`swap_events` 的领域表示：PancakeSwap V3 池子的逐笔 `Swap` 事件。
+
+    只服务链上场景（`instrument_id` 指向对应的 `Instrument`），字段对应
+    `alpha_storage.models.SwapEventRow`，见 research/SCHEMA.md 第 7 节。
+    """
+
+    model_config = {"frozen": True}
+
+    chain: Chain
+    pool_address: str  # 统一小写存储
+    instrument_id: str  # 逻辑外键 -> instruments.instrument_id
+    tx_hash: str
+    log_index: int
+    block_number: int
+    sender: str  # 统一小写存储
+    recipient: str
+    amount0: int  # token0 变动量，带符号（池子视角：正=流入）
+    amount1: int  # token1 变动量，带符号
+    sqrt_price_x96_after: int  # 成交后 √价格（Q64.96 定点数）
+    tick_after: int  # 成交后所在 tick
+    fetched_at: datetime  # 实际捕获时间（进程收到/回填时的时间，不是这笔交易真实发生的时间）
+    block_time: datetime  # 出块时间（K 线聚合分桶用这个，不用 fetched_at）；WebSocket 订阅路径
+    # 从推送 payload 免费拿到，HTTP 回填路径要额外调 ChainAdapter.get_block_timestamp 补齐，
+    # 见 alpha_chains.evm_websocket 的模块文档
+
+    @field_validator("pool_address", "sender", "recipient")
+    @classmethod
+    def _validate_address(cls, v: str) -> str:
+        return _normalize_address(v)
+
+
+class OhlcvCandle(BaseModel):
+    """`pool_ohlcv` 的领域表示：一根 K 线。字段对应 `alpha_storage.models.OhlcvRow`，见
+    research/SCHEMA.md 第 8 节。`open`/`high`/`low`/`close` 是 token1/token0 汇率
+    （不是 USD——1c 阶段因为单位不统一吃过真实 bug，这次直接按对的口径设计）。
+    """
+
+    model_config = {"frozen": True}
+
+    instrument_id: str
+    venue: str
+    tf: str  # K 线粒度，本期只有 "1m"
+    ts_event: datetime  # K 线开盘时间（真实区块时间，不是抓取时间）
+    ts_ingest: datetime  # 聚合脚本写入时间
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float  # base（token0）成交量绝对值之和，已按 decimals 换算
+    quote_volume: float | None = None  # quote（token1）成交量绝对值之和
+    trade_count: int | None = None  # 该分钟内成交笔数
 
 
 class PoolMetricsSnapshot(BaseModel):

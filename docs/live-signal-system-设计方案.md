@@ -205,13 +205,36 @@ TrackingError（4.2 节）和判断"锚定真空窗口"都需要一个独立于�
 - K 线聚合：`candles_1m`/`candles_5m` 由 `swap_events` 定时（如每分钟）聚合生成，不是订阅时实时计算——
   避免订阅进程本身承担聚合逻辑，职责分开。
 
+### 3.6 数据源可插拔设计（新增约束）
+
+本方案里新引入的外部数据源（参考价 API、WebSocket RPC 供应商）都要按"可插拔"设计——换供应商是
+改配置，不是改代码。这不是凭空要求，是延续这个仓库已经在用、被验证过的模式：
+
+- `packages/chains`：`ChainAdapter` 抽象接口，新增一条链只需要实现接口，`EvmChainAdapter` 本身
+  已经支持"多个 RPC 端点，第一个失败自动切下一个"。
+- `packages/datasources`：`MarketDataSource` 抽象接口，`GeckoTerminalClient` 是一个实现，
+  换成别的行情源（如以后接 Dune/Subgraph）只需要新写一个实现类，调用方不用改。
+- `packages/protocols`：`ProtocolPlugin`，新增协议只在 `plugins/` 下加文件。
+
+**参考价数据源**照这个模式来：新增 `ReferencePriceSource` 抽象接口（放
+`packages/datasources/reference_price.py` 或类似位置），方法至少包含
+`get_spot_price(symbol, as_of) -> float | None`（取不到返回 None，不能默认 0，沿用三态约定）和
+`get_market_session(as_of) -> MarketSessionState`（判断当前是开盘/盘后/休市，供"锚定真空窗口"判断用）。
+`PolygonIoReferencePriceSource`/`TwelveDataReferencePriceSource` 各自是一个实现，选哪个由配置决定
+（如环境变量），日后要换供应商或者加期货数据源（`FuturesReferencePriceSource`），新增一个实现类、
+改一行配置就行，不动调用方（`features/` 里用到参考价的地方只依赖抽象接口）。
+
+**WebSocket 订阅**同理：3.5 节的 `EvmWebSocketSubscriber` 也应该支持多个 WS 端点配置 + 失败切换
+（和 `EvmChainAdapter` 现有的 HTTP 多端点失败转移是同一个思路，不需要另外发明一套机制），
+避免单一 RPC 供应商的 WS 服务抖动直接打断整条数据链路。
+
 ## 4. 特征层设计（新增部分，已有的直接复用）
 
 | 特征 | 状态 | 说明 |
 |---|---|---|
 | FeeAPR/CakeAPR/NominalAPR/VTRatio/σ_price/CapitalVolatility/AgePenalty/DepthTier | 已有 | 直接复用 `features/`，无需改动 |
-| **ATR**（Average True Range） | 新增 | 标准 TA 指标，基于 1m/5m K 线的 high/low/close，衡量短周期真实波幅，和 σ_price（基于日线收盘价的对数收益率）是两个不同粒度的波动率信号，互补不替代 |
-| **ADX**（Average Directional Index） | 新增 | 判断趋势强弱，用于模型层的"要不要收窄区间/提前退出"决策，弱趋势（震荡市）适合窄区间吃手续费，强趋势（单边行情）应该放宽区间或直接退出 |
+| **ATR**（Average True Range） | **已实施（阶段 1）** | `features/atr.py`，标准 TA 指标，基于重采样出的 5 分钟 K 线 high/low/close，衡量短周期真实波幅，和 σ_price（基于日线收盘价的对数收益率）是两个不同粒度的波动率信号，互补不替代。详细公式/阈值见 `packages/metrics/src/alpha_metrics/features/README.md` |
+| **ADX**（Average Directional Index） | **已实施（阶段 1）** | `features/adx.py`，判断趋势强弱，喂给 `models/trend_state.py` 的状态机，弱趋势（震荡市）适合窄区间吃手续费，强趋势（单边行情）应该放宽区间或直接退出。详细公式/阈值见同上 README |
 | **TrackingError** | 新增 | pool-discovery-metrics-v1.md 4.2 节，`\|链上价格 − 参考价\| / 参考价`，依赖 3.4 节的参考价数据源 |
 | **GapJump** | 新增 | 4.3 节，锚定真空窗口的跳空幅度分布，样本量天然小（一年约 50 个周末），需要和 σ_price 一样做"样本不足则 unavailable"处理 |
 | **OrderFlowImbalance** | 新增 | 从逐笔 swap 的买卖方向统计，衡量资金流方向性，辅助判断"当前的高 volume 是真实双向交易还是单边资金进出" |
@@ -222,8 +245,8 @@ TrackingError（4.2 节）和判断"锚定真空窗口"都需要一个独立于�
 |---|---|---|
 | ExpectedIL_ref / 推荐区间 / 复合打分 | 已有 | 直接复用 `models/`，但见下面"RWA 调整" |
 | **RWA 跳跃扩散调整** | 需要改造，不能直接复用 | 现有 `il_model.py` 假设纯 GBM 无漂移，4.3 节明确说 RWA 资产需要在正常时段用 `σ_intraday`（连续模型）之外叠加 `GapJump`（离散跳跃项），"两者不应该用同一个 σ 描述"——这是本方案里**对现有模型的实质性扩展**，不是新增一个独立模块，需要单独实现 `models/rwa_il_model.py` 或给 `il_model.py` 加一个可选跳跃项参数 |
-| **退出信号模型**（新增，目前完全没实现） | 新增 | 对应 pool-discovery-metrics-v1.md 第 3 节，5 条信号：NetEdge<0、CAKE 激励撤出（大概率不适用，见 3.2 节）、VTRatio_MA(7日) 相比开仓时下降超阈值、CompositeScore 相对排名坍塌、**累计已实现 IL 超过累计手续费收入**（文档原文说这条"权重应该最高""可以考虑升级为自动触发候选"） |
-| **趋势/波动率状态模型** | 新增 | 基于 ADX/ATR 的简单状态机（趋势强/弱 × 波动高/低 四象限），决定用哪一档推荐区间（1d 已实现的三档 3/7/30 天）更合适，不是新公式，是"选哪个已有推荐档位"的规则 |
+| **退出信号模型** | **已实施（阶段 1）** | `models/exit_signals.py`，对应 pool-discovery-metrics-v1.md 第 3 节，5 条信号：NetEdge<0、CAKE 激励撤出、VTRatio_MA(7日) 相比开仓时下降超阈值、CompositeScore 相对排名坍塌、**累计已实现 IL 超过累计手续费收入**。后两条需要"开仓时"基线，由 `/conclusion` 的可选 query 参数传入，不传则对应信号 `unavailable`，不阻塞其余信号。详细逐条说明见 `packages/metrics/src/alpha_metrics/models/README.md` 第 5 节 |
+| **趋势/波动率状态模型** | **已实施（阶段 1）** | `models/trend_state.py`，基于 ADX/ATR% 的简单状态机——ADX 改成 3 档（强/过渡/弱，不是文档字面的二分"强/弱"，20-25 是业界公认的模糊区间）× ATR% 相对自身历史中位数的高/低 2 档，决定用哪一档推荐区间（1d 已实现的三档 3/7/30 天）更合适，不是新公式，是"选哪个已有推荐档位"的规则。详细映射表见同上 README 第 4 节 |
 
 ## 6. "结论"契约设计——research 与 alpha-lp 的边界
 
@@ -238,24 +261,34 @@ TrackingError（4.2 节）和判断"锚定真空窗口"都需要一个独立于�
 
 ```jsonc
 {
-  "model_version": "live-signal-v0.1.0",   // 新增概念，alpha-lp 目前完全没有"模型版本"字段
+  "model_version": "live-signal-v0.1.0-phase1",   // 阶段 1 已实施；risk_flags 仍是阶段 2 占位
   "as_of": "2026-08-16T12:00:00Z",
   "chain": "bsc",
   "pool_address": "0x...",
   "asset_class": "rwa",                   // "crypto_native" | "rwa"，决定下面哪些字段有意义
-  "recommended_action": "hold",           // hold | rebalance | exit | no_signal
-  "recommended_range": {                   // recommended_action=rebalance 时才有意义
-    "profile": "balanced",                 // 主动型/平衡型/被动型，见 recommended_range.py
-    "tick_lower": -12345, "tick_upper": -11000
+  "recommended_action": "hold",           // hold | exit | no_signal（"rebalance" 不由 research 判断，见下）
+  "recommended_range": {                   // 不管 recommended_action 是什么都会算，调用方需要这个数据点
+                                            // 去跟自己当前仓位比较；ADX/ATR%/σ_price/当前价格任一不可用时为 null
+    "profile": "balanced",                 // 对外用英文：active/balanced/passive，内部中文 key 不变
+    "target_days": 7,
+    "current_price": 1.585e-05,
+    "current_tick": -110529,
+    "price_lower": 1.523e-05, "price_upper": 1.649e-05,
+    "tick_lower": -111160, "tick_upper": -109900,
+    "capital_efficiency": 16.4
   },
-  "exit_signals": {                        // 对应第 3 节 5 条信号，每条独立布尔+数值，池子无关
+  "exit_signals": {                        // 对应第 3 节 5 条信号，池子无关；带 * 的两条需要仓位基线
+                                            // （/conclusion 的可选 query 参数），不传则为 null，不阻塞其余信号
     "net_edge_negative": false,
-    "vtratio_ma7_drop_pct": -0.12,
+    "net_edge_value": 0.0003,
+    "cake_incentive_withdrawn": false,      // 原文档 JSON 示例漏列的第 5 个字段，这里补上
+    "vtratio_ma7_drop_pct": -0.12,          // * 需要 position_open_vtratio_ma7
     "composite_rank_percentile": 0.63,
-    "cumulative_realized_il_exceeds_fees": false
+    "cumulative_realized_il_exceeds_fees": false,  // * 需要 position_open_price/value_usd/cumulative_fees_usd
+    "realized_il_usd": 6.7                          // *
   },
   "risk_flags": {
-    // 以下三项仅 asset_class="rwa" 时出现，crypto_native 的池子这个对象只会是 {}
+    // 以下三项仅 asset_class="rwa" 时出现，crypto_native 的池子这个对象只会是 {}（阶段 2 待实施）
     "tracking_error_pct": 0.017,
     "gap_jump_risk": "unavailable",        // 样本不足，如实标注
     "issuer_disclosure_status": "unaudited_custodian",  // 人工核实结论，见 1.2 节
@@ -267,6 +300,18 @@ TrackingError（4.2 节）和判断"锚定真空窗口"都需要一个独立于�
   "rationale": ["近 5 周历史不足以支撑标准置信度", "促销即将到期，当前 FeeAPR 不具代表性"]
 }
 ```
+
+**实际实现跟这份最初设计有一处出入**：`recommended_action` 目前只会是
+`hold`/`exit`/`no_signal`，不会返回 `rebalance`——research 不知道调用方当前仓位的实际
+tick 范围，"现在的区间跟推荐的差多少、值不值得为了 gas 成本去调"这个比较只有调用方自己
+能做；`recommended_range` 不管 `recommended_action` 是什么都会算好给出去，调用方拿这个
+字段自己做 rebalance 判断。第 7 章"alpha-lp 决策层设计"里"`rebalance` → 按
+`recommended_range` 走现有 `decideRange` 同款路径"这条对应关系不变，只是判断"要不要走
+这条路径"这一步现在落在 alpha-lp 侧，不是 research 侧的 `recommended_action` 直接给出。
+
+真实字段/请求参数以 [`apps/live-signal/README.md`](../apps/live-signal/README.md) 为准
+（这份设计文档冻结的是最初的契约草案，实现过程中的细节调整记录见该 README 和
+`packages/metrics/src/alpha_metrics/models/README.md` 第 5 节）。
 
 - `research` 侧只读、无副作用，不需要鉴权穿透生产权限（读的是 research 自己的库），可以放在
   内网或简单 token 鉴权。
@@ -343,16 +388,16 @@ TrackingError（4.2 节）和判断"锚定真空窗口"都需要一个独立于�
 
 ## 11. 分阶段落地建议
 
-| 阶段 | 目标 | 是否碰真实资金 |
-|---|---|---|
-| 0 | 同时接入 BTC/USDT 和 QQQB/USDT（已确认，见第 12 章）；打通数据链路：WebSocket 订阅 + 自建 K 线 + 已有特征/模型跑通，产出结论接口，alpha-lp 侧只读展示不决策 | 否 |
-| 1 | 补齐 ATR/ADX + 退出信号模型（第 3 节 5 条信号）——两类资产都要做，池子无关 | 否 |
-| 2 | QQQB/USDT 专属：接入美股现货参考价 API（已确认选型），补齐 TrackingError/GapJump；BTC/USDT 跳过这一阶段 | 否 |
-| 3 | alpha-lp 新策略 plugin 接入结论接口，**DRY_RUN 模式**跑决策全流程 | 否 |
-| 4 | **与阶段 1-3 并行**：规划并实现"claim ACTIVE intent → 调用 `packages/execution` 真实函数"的执行器代码（已确认现在就做），代码写完后默认仍跑在 `DRY_RUN`，不自动上线 | 否（写代码本身不碰真实资金） |
-| 5 | 观察 DRY_RUN 决策质量一段时间后，**你明确批准**才把 `strategies.mode` 切到 `ACTIVE`，初始仓位上限单独拍板 | **是，需要明确批准** |
-| 6 | 反馈闭环：真实结果导出 → research 校准任务 → 新 `model_version` | 视阶段 5 是否已开始而定 |
-| 7 | 接入更多候选池——按第 0 章的设计，这一步只是新增配置（池子地址 + `asset_class`），不是重新开发 | 否 |
+| 阶段 | 目标 | 是否碰真实资金 | 状态 |
+|---|---|---|---|
+| 0 | 同时接入 BTC/USDT 和 QQQB/USDT（已确认，见第 12 章）；打通数据链路：WebSocket 订阅 + 自建 K 线 + 已有特征/模型跑通，产出结论接口，alpha-lp 侧只读展示不决策 | 否 | **已实施**——见 `apps/live-signal/README.md`；当时 `recommended_action`/`exit_signals`/`recommended_range` 全部是占位（`model_version="live-signal-v0.0.0-phase0"`），`risk_flags` 仍是占位（阶段 2） |
+| 1 | 补齐 ATR/ADX + 退出信号模型（第 3 节 5 条信号）——两类资产都要做，池子无关 | 否 | **已实施**——`exit_signals`/`recommended_range` 从占位变成真实计算，`recommended_action` 现在会返回 `exit`，`model_version="live-signal-v0.1.0-phase1"`；详细实现见第 4/5/6 章的更新和 `packages/metrics` 下两份 `models`/`features` README |
+| 2 | QQQB/USDT 专属：接入美股现货参考价 API（已确认选型），补齐 TrackingError/GapJump；BTC/USDT 跳过这一阶段 | 否 | 待启动 |
+| 3 | alpha-lp 新策略 plugin 接入结论接口，**DRY_RUN 模式**跑决策全流程 | 否 | 待启动 |
+| 4 | **与阶段 1-3 并行**：规划并实现"claim ACTIVE intent → 调用 `packages/execution` 真实函数"的执行器代码（已确认现在就做），代码写完后默认仍跑在 `DRY_RUN`，不自动上线 | 否（写代码本身不碰真实资金） | 待启动 |
+| 5 | 观察 DRY_RUN 决策质量一段时间后，**你明确批准**才把 `strategies.mode` 切到 `ACTIVE`，初始仓位上限单独拍板 | **是，需要明确批准** | 待启动 |
+| 6 | 反馈闭环：真实结果导出 → research 校准任务 → 新 `model_version` | 视阶段 5 是否已开始而定 | 待启动 |
+| 7 | 接入更多候选池——按第 0 章的设计，这一步只是新增配置（池子地址 + `asset_class`），不是重新开发 | 否 | 待启动 |
 
 ## 12. 决策记录
 

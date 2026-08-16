@@ -1,0 +1,26 @@
+[project]
+name = "alpha-metrics"
+version = "0.1.0"
+description = "特征层 + 模型层：FeeAPR/VTRatio/σ_price 等纯特征，ExpectedIL_ref/推荐区间/复合打分等模型；跨 apps 共享"
+requires-python = ">=3.11"
+dependencies = [
+  "alpha-core",
+  "alpha-chains",
+  "alpha-protocols",
+  "alpha-storage",
+  "alpha-datasources",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alpha_metrics"]
+
+[tool.uv.sources]
+alpha-core = { workspace = true }
+alpha-chains = { workspace = true }
+alpha-protocols = { workspace = true }
+alpha-storage = { workspace = true }
+alpha-datasources = { workspace = true }

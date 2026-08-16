@@ -10,24 +10,24 @@ from __future__ import annotations
 import logging
 import math
 import statistics
-from dataclasses import dataclass
-from datetime import date
 
 import click
 from alpha_chains.bsc import build_bsc_adapter
 from alpha_core.types import Chain, PoolCandidateStatus
 from alpha_datasources.coingecko import COINGECKO_CAKE_ID, CoinGeckoClient
 from alpha_datasources.geckoterminal import GeckoTerminalClient
+from alpha_metrics.models.composite_score import NORMALIZED_COMPONENT_WEIGHTS, CompositeScoreResult
+from alpha_metrics.scoring import (
+    PoolRawMetrics,
+    collect_raw_metrics,
+    compute_composite_scores,
+    normalize_all_components,
+)
 from alpha_protocols.plugins.pancakeswap_v3 import PancakeswapV3Plugin
 from alpha_storage.db import session_scope
 from alpha_storage.repositories.pool_candidates import PoolCandidateRepository
-from alpha_storage.repositories.pool_metrics import PoolMetricsRepository
 from dotenv import load_dotenv
 
-from ..chain_reads import read_cake_emission_safe, read_fee_protocol_safe
-from ..compute import compute_daily_metrics
-from ..models.composite_score import NORMALIZED_COMPONENT_WEIGHTS, CompositeScoreResult, compute_composite_score
-from ..models.normalize import normalize_min_max
 from ..report_utils import pool_label
 
 logger = logging.getLogger(__name__)
@@ -38,18 +38,6 @@ _COMPONENT_LABELS = {
     "il_risk": "IL 风险幅度",
     "capital_volatility": "CapitalVolatility",
 }
-
-
-@dataclass(frozen=True)
-class PoolRawMetrics:
-    """一个候选池当前的原始指标值（未归一化）。"""
-
-    pool_address: str
-    nominal_apr: float | None
-    vt_ratio: float | None
-    il_risk_raw: float | None  # |ExpectedIL_ref|，见 composite_score.py 的符号澄清
-    capital_volatility: float | None
-    age_penalty: float | None
 
 
 def _pearson(xs: list[float], ys: list[float]) -> float | None:
@@ -63,69 +51,6 @@ def _pearson(xs: list[float], ys: list[float]) -> float | None:
     if var_x == 0 or var_y == 0:
         return None
     return cov / math.sqrt(var_x * var_y)
-
-
-def _collect_raw_metrics(
-    pools,
-    *,
-    chain: Chain,
-    adapter,
-    plugin: PancakeswapV3Plugin,
-    cake_usd_price: float | None,
-) -> list[PoolRawMetrics]:
-    today = date.today()
-    results = []
-    with session_scope() as session:
-        metrics_repo = PoolMetricsRepository(session)
-        for row in pools:
-            history = metrics_repo.get_series_up_to(chain, row.pool_address, today)
-            fee_protocol = read_fee_protocol_safe(adapter, plugin, row.pool_address)
-            cake_emission = read_cake_emission_safe(adapter, plugin, row.pool_address)
-            m = compute_daily_metrics(
-                chain=chain,
-                pool_address=row.pool_address,
-                fee_pips=row.fee_pips,
-                created_at=row.created_at,
-                as_of=today,
-                history=history,
-                fee_protocol=fee_protocol,
-                cake_emission=cake_emission,
-                cake_usd_price=cake_usd_price,
-            )
-            results.append(
-                PoolRawMetrics(
-                    pool_address=row.pool_address,
-                    nominal_apr=m.nominal_apr.value if m.nominal_apr.is_available else None,
-                    vt_ratio=m.vt_ratio.value if m.vt_ratio.is_available else None,
-                    il_risk_raw=abs(m.expected_il_ref.value) if m.expected_il_ref.is_available else None,
-                    capital_volatility=(
-                        m.capital_volatility.value if m.capital_volatility.is_available else None
-                    ),
-                    age_penalty=m.age_penalty.value if m.age_penalty.is_available else None,
-                )
-            )
-    return results
-
-
-# NORMALIZED_COMPONENT_WEIGHTS 的键 -> PoolRawMetrics 对应字段名（"il_risk" 存的是 |ExpectedIL_ref|，
-# 字段名叫 il_risk_raw 以强调"还没归一化"，其余三个字段名和分项键正好一致）。
-_FIELD_BY_COMPONENT: dict[str, str] = {
-    "nominal_apr": "nominal_apr",
-    "vt_ratio": "vt_ratio",
-    "il_risk": "il_risk_raw",
-    "capital_volatility": "capital_volatility",
-}
-
-
-def _normalize_component(raw_metrics: list[PoolRawMetrics], component: str) -> dict[str, float]:
-    """在"该分项当前可得"的候选池子集内做 min-max 归一化，返回 {地址: 归一化值}。"""
-    field = _FIELD_BY_COMPONENT[component]
-    pairs = [(m.pool_address, getattr(m, field)) for m in raw_metrics if getattr(m, field) is not None]
-    if not pairs:
-        return {}
-    addrs, values = zip(*pairs, strict=True)
-    normalized = normalize_min_max(list(values))
-    return dict(zip(addrs, normalized, strict=True))
 
 
 def _render_report(
@@ -306,21 +231,12 @@ def main(limit: int | None, output: str) -> None:
     gecko = GeckoTerminalClient(network=chain.value)
     pool_names = {addr: s.name for addr, s in gecko.get_pool_snapshots(pool_addresses).items() if s.name}
 
-    raw_metrics = _collect_raw_metrics(
+    raw_metrics = collect_raw_metrics(
         pools, chain=chain, adapter=adapter, plugin=plugin, cake_usd_price=cake_usd_price
     )
 
-    normalized_by_field = {
-        component: _normalize_component(raw_metrics, component) for component in NORMALIZED_COMPONENT_WEIGHTS
-    }
-
-    scores: dict[str, CompositeScoreResult] = {}
-    for m in raw_metrics:
-        normalized_components = {
-            component: normalized_by_field[component].get(m.pool_address)
-            for component in NORMALIZED_COMPONENT_WEIGHTS
-        }
-        scores[m.pool_address] = compute_composite_score(normalized_components, m.age_penalty)
+    normalized_by_field = normalize_all_components(raw_metrics)
+    scores = compute_composite_scores(raw_metrics, normalized_by_field)
 
     report = _render_report(raw_metrics, normalized_by_field, scores, pool_names, chain.value)
     with open(output, "w", encoding="utf-8") as f:

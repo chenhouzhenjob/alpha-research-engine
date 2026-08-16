@@ -5,7 +5,7 @@
 README 已记录的限制），没法把"某天的真实手续费收入"按历史逐日重算。这里只回测"资金效率利用率"
 这个纯粹由真实历史价格路径决定、不依赖历史 volume 的量——区间在目标周期内有多大比例的时间
 价格真的留在区间里（`utilization_ratio`），乘上集中流动性相对全范围的资金效率倍数
-（`capital_efficiency`，见 `features/recommended_range.py`）。这是一个"资金效率有没有兑现"的
+（`capital_efficiency`，见 `alpha_metrics.models.recommended_range`）。这是一个"资金效率有没有兑现"的
 真实历史回测，不是"这段时间赚了多少美元"的回测——后者需要历史 volume，目前拿不到，
 不能用"今天的费率套用到历史每一天"这种做法冒充历史回测，那样会把 volume 随价格波动的真实变化抹平。
 """
@@ -21,13 +21,13 @@ from datetime import date
 import click
 from alpha_core.types import Chain, PoolCandidateStatus
 from alpha_datasources.geckoterminal import GeckoTerminalClient
+from alpha_metrics.features.volatility import MIN_CLOSE_OBSERVATIONS, sigma_price
+from alpha_metrics.models.il_model import expected_il_ref, realized_il_from_price_ratio
+from alpha_metrics.models.recommended_range import MAINTENANCE_PROFILES, capital_efficiency, recommended_width
 from alpha_storage.db import session_scope
 from alpha_storage.repositories.pool_candidates import PoolCandidateRepository
 from dotenv import load_dotenv
 
-from ..features.volatility import MIN_CLOSE_OBSERVATIONS, sigma_price
-from ..models.il_model import expected_il_ref, realized_il_from_price_ratio
-from ..models.recommended_range import MAINTENANCE_PROFILES, capital_efficiency, recommended_width
 from ..report_utils import pool_label
 from .il_model import DEFAULT_HISTORY_DAYS
 

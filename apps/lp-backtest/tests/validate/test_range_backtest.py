@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from lp_backtest.features.volatility import MIN_CLOSE_OBSERVATIONS
+from alpha_metrics.features.volatility import MIN_CLOSE_OBSERVATIONS
 from lp_backtest.validate.range_backtest import _first_breach_offset, collect_range_samples
 
 

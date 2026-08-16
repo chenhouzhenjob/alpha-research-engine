@@ -64,6 +64,12 @@ class PoolMetricsRepository:
                 "close_price": func.coalesce(
                     stmt.excluded.close_price, PoolMetricsHistoryRow.close_price
                 ),
+                # data_source 之前漏在 set_ 里，导致这一列一旦首次插入就再也不会更新——
+                # 真实发现：接入 subgraph 之后重跑，tvl_usd/volume_24h_usd 正确从 None 变成
+                # 真实值，但 data_source 一直停留在第一次插入时的 'geckoterminal'，没有反映出
+                # 真正的数据来源。跟上面几个数值字段不同，这里不需要 COALESCE——data_source
+                # 每条路径都会给一个真实字符串，不会是 None，直接覆盖。
+                "data_source": stmt.excluded.data_source,
                 "fetched_at": stmt.excluded.fetched_at,
             },
         )

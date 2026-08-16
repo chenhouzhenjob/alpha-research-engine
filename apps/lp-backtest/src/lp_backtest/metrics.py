@@ -16,14 +16,12 @@ from alpha_chains.bsc import build_bsc_adapter
 from alpha_core.metrics import MetricValue
 from alpha_core.types import Chain
 from alpha_datasources.coingecko import COINGECKO_CAKE_ID, CoinGeckoClient
+from alpha_metrics.assemble import assemble_daily_metrics
 from alpha_protocols.plugins.pancakeswap_v3 import PancakeswapV3Plugin
 from alpha_storage.db import session_scope
 from alpha_storage.repositories.pool_candidates import PoolCandidateRepository
 from alpha_storage.repositories.pool_metrics import PoolMetricsRepository
 from dotenv import load_dotenv
-
-from .chain_reads import read_cake_emission_safe, read_fee_protocol_safe
-from .compute import compute_daily_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -66,20 +64,17 @@ def main(pool_address: str, as_of_str: str | None) -> None:
 
     adapter = build_bsc_adapter()
     plugin = PancakeswapV3Plugin()
-    fee_protocol = read_fee_protocol_safe(adapter, plugin, pool_address)
-    cake_emission = read_cake_emission_safe(adapter, plugin, pool_address)
-
     cake_usd_price = CoinGeckoClient().get_simple_price_usd(COINGECKO_CAKE_ID)
 
-    metrics = compute_daily_metrics(
+    metrics = assemble_daily_metrics(
         chain=chain,
         pool_address=pool_address,
         fee_pips=candidate.fee_pips,
         created_at=candidate.created_at,
         as_of=as_of,
         history=history,
-        fee_protocol=fee_protocol,
-        cake_emission=cake_emission,
+        adapter=adapter,
+        plugin=plugin,
         cake_usd_price=cake_usd_price,
     )
     print(json.dumps(_serialize(metrics), indent=2, ensure_ascii=False))

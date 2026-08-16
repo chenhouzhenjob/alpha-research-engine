@@ -36,6 +36,7 @@ class PoolCandidateRepository:
                 "created_at_block": c.created_at_block,
                 "created_at": c.created_at,
                 "status": c.status.value,
+                "asset_class": c.asset_class.value,
                 "discovered_at": now,
                 "updated_at": now,
             }
@@ -43,6 +44,39 @@ class PoolCandidateRepository:
         ]
         stmt = insert(PoolCandidateRow).values(rows)
         stmt = stmt.on_conflict_do_nothing(constraint="uq_pool_candidates_chain_pool")
+        self._session.execute(stmt)
+
+    def upsert_manual(self, candidate: PoolCandidate) -> None:
+        """人工核实过的候选池：显式覆盖 `status`/`asset_class`，不同于 `upsert_many` 的
+        "已存在就跳过"语义——用于 `register_pool` 这类"我已经确认这个池子该长什么样"的场景，
+        不是自动发现流程，所以允许覆盖已有记录的这两个字段（其余字段冲突时保留已有值，
+        避免覆盖掉自动发现流程算出来的、可能更准确的 `created_at_block` 等信息）。
+        """
+        now = datetime.now(UTC)
+        row = {
+            "chain": candidate.chain.value,
+            "dex_id": candidate.dex_id.value,
+            "pool_address": candidate.pool_address,
+            "token0_address": candidate.token0_address,
+            "token1_address": candidate.token1_address,
+            "fee_pips": candidate.fee_pips,
+            "tick_spacing": candidate.tick_spacing,
+            "created_at_block": candidate.created_at_block,
+            "created_at": candidate.created_at,
+            "status": candidate.status.value,
+            "asset_class": candidate.asset_class.value,
+            "discovered_at": now,
+            "updated_at": now,
+        }
+        stmt = insert(PoolCandidateRow).values(row)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_pool_candidates_chain_pool",
+            set_={
+                "status": stmt.excluded.status,
+                "asset_class": stmt.excluded.asset_class,
+                "updated_at": stmt.excluded.updated_at,
+            },
+        )
         self._session.execute(stmt)
 
     def list_by_status(
