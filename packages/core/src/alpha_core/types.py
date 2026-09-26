@@ -11,6 +11,10 @@ class Chain(StrEnum):
     BSC = "bsc"  # BNB Chain，chainId 56，本期（lp-backtest 1a）唯一支持的链
 
 
+# 各链的 EVM chainId，外部接口（Sourcify 等）按 chainId 区分链时使用。
+EVM_CHAIN_IDS: dict[Chain, int] = {Chain.BSC: 56}
+
+
 class DexId(StrEnum):
     """已知的 DEX 标识。取值对齐 GeckoTerminal 的 dex id，避免自造一套映射。"""
 

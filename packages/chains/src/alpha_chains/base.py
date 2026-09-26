@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Hashable
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Generic, TypeVar
 
+from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
 from alpha_core.types import Chain
+
+__all__ = ["BatchResult", "ChainAdapter", "LogEntry", "RawLog", "TopicFilter", "TxInfo", "TxReceipt"]
+
+K = TypeVar("K", bound=Hashable)
+V = TypeVar("V")
+
+# 日志 topic 过滤条件：某个位置可以是单个值、OR 数组（任一匹配），或 None（不过滤）。
+TopicFilter = str | list[str] | None
 
 
 @dataclass(frozen=True)
@@ -29,6 +40,14 @@ class LogEntry:
     # 不要假设这个字段一定有值
 
 
+@dataclass
+class BatchResult(Generic[K, V]):
+    """批量读取的结果：成功的和失败的分开返回，失败项不会被静默丢弃或当成空值。"""
+
+    ok: dict[K, V] = field(default_factory=dict)  # 键 → 读取结果
+    failed: dict[K, str] = field(default_factory=dict)  # 键 → 失败原因
+
+
 class ChainAdapter(ABC):
     """统一的链适配器接口。EVM 系新链通常继承 `evm_common.EvmChainAdapter`，只需覆盖差异项。"""
 
@@ -42,8 +61,8 @@ class ChainAdapter(ABC):
     def get_logs(
         self,
         *,
-        address: str,
-        topics: list[str | None],
+        address: str | list[str] | None,
+        topics: list[TopicFilter],
         from_block: int,
         to_block: int,
     ) -> list[LogEntry]:
@@ -52,8 +71,8 @@ class ChainAdapter(ABC):
         实现方需要自行处理 RPC 提供商对单次查询区块跨度的限制（分段查询），
         调用方不需要关心分段细节。
 
-        @param address 目标合约地址
-        @param topics topic 过滤条件，位置对应 topic0..N；None 表示该位置不过滤
+        @param address 目标合约地址；传列表表示任一地址；传 None 表示不限地址（部分 RPC 会拒绝）
+        @param topics topic 过滤条件，位置对应 topic0..N；某个位置传列表表示 OR，None 表示该位置不过滤
         @param from_block 起始区块（含）
         @param to_block 结束区块（含）
         @returns 匹配的日志列表，按区块号、log_index 升序
@@ -75,6 +94,30 @@ class ChainAdapter(ABC):
         @param data ABI 编码后的调用数据（4 字节函数选择器 + 参数），0x 开头
         @returns 原始返回数据
         """
+
+    @abstractmethod
+    def get_block_timestamps(self, block_numbers: list[int]) -> BatchResult[int, datetime]:
+        """批量返回多个区块的出块时间（UTC）。已缓存的不发请求。"""
+
+    @abstractmethod
+    def get_transaction_receipts(self, tx_hashes: list[str]) -> BatchResult[str, TxReceipt]:
+        """按交易哈希批量取回执；键为小写带 0x 的哈希。查不到的交易放进 `failed`。"""
+
+    @abstractmethod
+    def get_transactions(self, tx_hashes: list[str]) -> BatchResult[str, TxInfo]:
+        """按交易哈希批量取交易本身（调用数据、原生币数量等）。"""
+
+    @abstractmethod
+    def get_codes(self, addresses: list[str]) -> BatchResult[str, str]:
+        """批量取合约当前的 runtime bytecode；EOA 返回 "0x"。键为小写地址。"""
+
+    @abstractmethod
+    def get_storage_at(self, address: str, slot: int) -> str:
+        """读取合约某个存储槽的当前值（32 字节，0x 开头），用于识别代理合约的实现地址。"""
+
+    @abstractmethod
+    def get_transaction_count(self, address: str) -> int:
+        """返回地址当前的 nonce（已发出的交易数），用于核对索引源的数据是否完整。"""
 
     @abstractmethod
     def find_block_by_timestamp(self, target: datetime, *, low: int = 0, high: int | None = None) -> int:

@@ -7,10 +7,12 @@
 
 ## 0. 通用约定
 
-- 主键统一用 `BIGSERIAL`（`BigInteger` + `primary_key=True`）自增。
-- 链上地址统一小写存储，定长 `CHAR(42)`（`0x` + 40 位十六进制）。
+- 主键统一用 `BIGSERIAL`（`BigInteger` + `primary_key=True`）自增；天然有业务主键的缓存类表（第 10 节起）直接用联合主键。
+- 链上地址统一小写存储。第 3~9 节的历史表用定长 `CHAR(42)`；**第 10 节起的新表一律用 `VARCHAR`**
+  （`CHAR(N)` 读出来会带尾部空格，只在 SQL `where` 里比较安全，在 Python 里比较或序列化会出错）。
+- 新表里的地址、交易哈希、topic、data 一律小写且带 `0x` 前缀；原始整数金额用 `NUMERIC(78,0)`（放得下 uint256）。
 - 时间统一 `TIMESTAMPTZ`（UTC）；自然日字段（如逐日快照的日期）用 `DATE`。
-- 枚举取值统一存文本（`CHAR(N)`），不用数据库原生 enum 类型，方便新增取值不改表结构。
+- 枚举取值统一存文本（历史表 `CHAR(N)`，新表 `VARCHAR(N)`），不用数据库原生 enum 类型，方便新增取值不改表结构。
 
 ## 1. 表总览
 
@@ -22,7 +24,14 @@
 | `instruments` | 标的目录 | 跨资产类型的标的登记表，字段命名对齐 `alpha-research-engine` 的 envelope 约定 |
 | `swap_events` | 实时数据 | PancakeSwap V3 池子的逐笔 `Swap` 事件，WebSocket 订阅落库的最细粒度原始数据 |
 | `pool_ohlcv` | 实时数据 | 链上池子的 K 线（本期只有 1 分钟粒度），字段命名同样对齐 `alpha-research-engine` 的约定；表名带 `pool_` 前缀是因为以后 CEX/股票的 OHLCV 会是各自独立的表，不混进这张 |
-| `tokens` | 元数据缓存 | ERC20 `decimals()` 的永久缓存，避免每次都现场 `eth_call` 重查不可变值 |
+| `tokens` | 元数据缓存 | token 元数据（decimals、symbol、name、标准、风险标记）的永久缓存，避免重复 `eth_call` 查不可变值 |
+| `block_times` | 链数据缓存 | 区块出块时间，懒加载，严禁全量回填 |
+| `chain_txs` | 链数据缓存 | 交易基本信息（来自地址索引源或回执），记录回执是否已入库 |
+| `chain_logs` | 链数据缓存 | 回执里的日志，只存和已分析钱包相关的交易 |
+| `abi_cache` | 链数据缓存 | 合约 ABI、函数/事件签名的查询结果，含"查不到"的负缓存 |
+| `price_points` | 链数据缓存 | token 历史价格，只缓存已收盘的时间桶 |
+| `external_call_ledger` | 运维 | 外部调用（RPC、HTTP API）按天汇总的额度账本 |
+| `chain_state_cache` | 运维 | 可变链上状态（余额、slot0 等）的短时缓存 |
 
 ## 2. 关系概览
 
@@ -32,7 +41,13 @@ erDiagram
     pool_candidates ||--o{ pool_metrics_history : "候选池的逐日快照"
     instruments ||--o{ swap_events : "标的的逐笔成交"
     instruments ||--o{ pool_ohlcv : "标的的K线"
+    chain_txs ||--o{ chain_logs : "回执里的日志"
+    tokens ||--o{ price_points : "token 的历史价格"
 ```
+
+`chain_logs.(chain, tx_hash)` → `chain_txs`、`price_points.(chain, token_address)` → `tokens` 都是逻辑外键，不加数据库约束：
+回执可能先于索引源到达，价格可能先于 token 元数据写入，不希望被写入顺序卡住。`block_times`、`abi_cache`、
+`external_call_ledger`、`chain_state_cache` 是独立的缓存/运维表，与其他表没有关联。
 
 `pool_candidates.pool_address` 与 `pool_metrics_history.pool_address` 是逻辑外键（同 `chain` 下的池子地址一一对应），
 本期未加数据库外键约束——候选池发现（1a）与历史快照抓取（1a 内的独立步骤）允许乱序补数据，不希望被外键顺序卡住。
@@ -235,20 +250,165 @@ Parquet）——WebSocket 实时写入 + HTTP 接口查最新一分钟这个访�
 
 ## 9. tokens
 
-ERC20 token 元数据的永久缓存，目前只有 `decimals`。`decimals()` 是 ERC20 标准里的不可变值，
-一经查到永久有效——之前每次 `aggregate_candles` 调用都现场 `eth_call` 重新查一遍（NodeReal
-按 20 CU/次计费，真实跑过才发现这是纯浪费），这张表让"同一个 token 只查一次链"落到实处，
-不是进程内存缓存（那样每次新起 CLI 进程缓存都清零，等于没缓存）。
-
-`alpha_core.models.Token` 这个领域对象在 1a 阶段就写好了、专门标注"decimals/symbol 应当永久
-缓存"，但当时没有配套的存储层，这张表补上这个缺口。
+token 元数据的永久缓存。`decimals()`、`symbol()`、`name()` 在 ERC20 里都是不可变值，一经查到永久有效——
+之前每次 `aggregate_candles` 调用都现场 `eth_call` 重新查一遍（NodeReal 按 20 CU/次计费，真实跑过才发现
+这是纯浪费），这张表让"同一个 token 只查一次链"落到实处，不是进程内存缓存（那样每次新起 CLI 进程缓存都清零）。
+钱包分析（迁移 0006）给它补了 symbol/name/标准/风险标记，并允许元数据来自地址索引源的返回值（零 RPC）。
 
 | 字段 | 类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
 | chain | CHAR(10) | 否 | 无 | 链标识；联合主键之一 |
 | token_address | CHAR(42) | 否 | 无 | 统一小写存储；联合主键之一 |
-| decimals | INTEGER | 否 | 无 | ERC20 `decimals()` 的返回值 |
+| decimals | INTEGER | 否 | 无 | ERC20 `decimals()` 的返回值；NFT（erc721/erc1155）记 0 |
 | fetched_at | TIMESTAMPTZ | 否 | 无 | 首次查到并落库的时间 |
+| symbol | VARCHAR(64) | 是 | NULL | 代币符号；读不出来时为 NULL（兼容把 symbol 定义成 bytes32 的老代币） |
+| name | VARCHAR(128) | 是 | NULL | 代币名称；读不出来时为 NULL |
+| standard | VARCHAR(8) | 是 | NULL | 代币标准，取值见下方枚举说明；迁移 0006 之前写入的行为 NULL，按 erc20 理解 |
+| source | VARCHAR(16) | 否 | `'rpc'` | 元数据来源：`rpc`（链上查询）/ `indexer`（地址索引源返回值） |
+| risk_flag | VARCHAR(16) | 否 | `'normal'` | 风险标记，取值见下方枚举说明 |
+| updated_at | TIMESTAMPTZ | 是 | NULL | 元数据最后一次补全的时间；只写过 decimals 的历史行为 NULL |
 
-**约束**：主键 `(chain, token_address)`。冲突时保留已有值不覆盖（`decimals` 不可变，理论上
-不会真的查出不同值，见 `TokenRepository.upsert`）。
+**约束**：主键 `(chain, token_address)`。`decimals` 不可变，冲突时不覆盖（见 `TokenRepository.upsert`）；
+symbol/name/standard 只在原值为 NULL 时补上（见 `TokenRepository.upsert_metadata`）。
+
+### 枚举说明
+
+- `standard`：`erc20`（同质化代币）/ `erc721`（NFT）/ `erc1155`（多代币标准）。
+- `risk_flag`：`normal`（正常）/ `spam`（垃圾空投代币）/ `impersonator`（冒充知名代币）/ `hacked`（已被攻击、价格不可信）。
+
+## 10. block_times
+
+区块出块时间的永久缓存。区块时间不可变，**只在需要时懒加载写入，严禁全量回填**（BSC 出块 0.45 秒，一年约
+7000 万个区块，全量灌入是几个 GB 的无用数据）。优先从地址索引源返回值、WebSocket payload 免费获得；
+只有拿不到时才用 `eth_getBlockByNumber` 查询。由 `EvmChainAdapter` 通过注入的 `BlockTimeStore` 读写。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| block_number | BIGINT | 否 | 无 | 区块号；联合主键之一 |
+| block_time | TIMESTAMPTZ | 否 | 无 | 出块时间（UTC） |
+| source | VARCHAR(16) | 否 | 无 | 时间的来源：`rpc` / `indexer` / `wss` / `receipt` |
+
+**约束**：主键 `(chain, block_number)`。冲突时保留已有值（不可变）。
+
+## 11. chain_txs
+
+交易基本信息。一笔交易可能先由地址索引源写入（带原生币数量、方法选择器），之后取回执时补全状态和 gas，
+并把 `receipt_fetched` 置为 true；不同来源给的字段互相补齐，已有值不被 NULL 覆盖。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| tx_hash | VARCHAR(66) | 否 | 无 | 交易哈希；联合主键之一 |
+| block_number | BIGINT | 否 | 无 | 所在区块 |
+| tx_index | INTEGER | 是 | NULL | 块内序号；未知时为 NULL |
+| from_address | VARCHAR(42) | 否 | 无 | 发起地址 |
+| to_address | VARCHAR(42) | 是 | NULL | 目标地址；创建合约的交易为 NULL |
+| value_raw | NUMERIC(78,0) | 否 | 0 | 原生币数量（wei） |
+| method_selector | VARCHAR(10) | 是 | NULL | 调用数据前 4 字节（如 `0xa9059cbb`）；普通转账或未知时为 NULL |
+| status | SMALLINT | 是 | NULL | 执行结果：1 成功 / 0 失败 / NULL 未知（尚未取回执） |
+| gas_used | BIGINT | 是 | NULL | 实际消耗的 gas |
+| effective_gas_price | NUMERIC(78,0) | 是 | NULL | 实际 gas 单价（wei） |
+| contract_address | VARCHAR(42) | 是 | NULL | 创建合约的交易所创建的地址；其他交易为 NULL |
+| receipt_fetched | BOOLEAN | 否 | false | 回执和日志是否已入库；入库后不再重复拉取 |
+| source | VARCHAR(16) | 否 | 无 | 该行最初来源：`indexer`（地址索引源）/ `rpc` |
+| first_seen_at | TIMESTAMPTZ | 否 | `now()` | 首次写入时间 |
+
+**约束**：主键 `(chain, tx_hash)`；索引 `(chain, block_number)`；部分索引 `(chain) WHERE receipt_fetched = false`
+（快速找出待取回执的交易）。
+
+## 12. chain_logs
+
+回执里的日志。只存和已分析钱包相关的交易，不做全链归档。与对应回执在同一个事务里写入。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| tx_hash | VARCHAR(66) | 否 | 无 | 所属交易；联合主键之一 |
+| log_index | INTEGER | 否 | 无 | 在整个区块内的日志序号；联合主键之一 |
+| block_number | BIGINT | 否 | 无 | 所在区块 |
+| address | VARCHAR(42) | 否 | 无 | 发出日志的合约 |
+| topic0 | VARCHAR(66) | 是 | NULL | 事件签名哈希；匿名事件为 NULL |
+| topic1 ~ topic3 | VARCHAR(66) | 是 | NULL | indexed 参数；不存在时为 NULL |
+| data | TEXT | 否 | 无 | 非 indexed 参数的 ABI 编码，带 `0x` 前缀 |
+
+**约束**：主键 `(chain, tx_hash, log_index)`；索引 `(chain, address, topic0)`、`(chain, topic0)`。
+
+## 13. abi_cache
+
+合约 ABI 和函数/事件签名的查询结果，包括"查不到"的负缓存：到 `retry_after` 之前不重复查询，避免反复请求
+Sourcify、签名库。临时错误（网络、限流）不写入，避免把"暂时查不到"误记成"查不到"。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；签名类查询与链无关，记 `*`；联合主键之一 |
+| key_type | VARCHAR(16) | 否 | 无 | 查询键类型：`address` / `function` / `event`；联合主键之一 |
+| key | VARCHAR(66) | 否 | 无 | 合约地址、4 字节函数选择器或事件 topic0；联合主键之一 |
+| status | VARCHAR(16) | 否 | 无 | 查询结果，取值见下方枚举说明 |
+| source | VARCHAR(32) | 是 | NULL | 命中的来源：`sourcify` / `openchain` / `4byte`；未命中时为 NULL |
+| name | VARCHAR(256) | 是 | NULL | 合约名（地址类）或首选签名文本（签名类） |
+| abi | JSONB | 是 | NULL | 地址类：ABI 数组；签名类：全部候选签名文本数组（签名碰撞时不在这一层挑选）；非 success 时为 NULL |
+| fetched_at | TIMESTAMPTZ | 否 | 无 | 查询时间 |
+| retry_after | TIMESTAMPTZ | 是 | NULL | 负缓存到期时间；success 时为 NULL |
+
+**约束**：主键 `(chain, key_type, key)`。负缓存到期后重查的结果覆盖旧记录。
+
+### 枚举说明
+
+- `status`：`success`（查到，永久有效）/ `not_found`（所有来源都明确没有；按地址查 7 天后可重查，按签名查 30 天后可重查）/
+  `invalid`（来源返回了数据但无法解析；30 天后可重查）。
+
+## 14. price_points
+
+token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的桶还会变）。取价策略（稳定币按 1、同笔交易隐含价格等）
+不在这里，由上层定价器决定；这张表只缓存数据源的原始结果。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| token_address | VARCHAR(42) | 否 | 无 | token 地址；联合主键之一 |
+| granularity | VARCHAR(8) | 否 | 无 | 时间桶粒度：`1h` / `1d`；联合主键之一 |
+| bucket_start | TIMESTAMPTZ | 否 | 无 | 时间桶起点（UTC）；联合主键之一 |
+| price_usd | NUMERIC(38,18) | 否 | 无 | 该时间桶收盘价（美元） |
+| source | VARCHAR(32) | 否 | 无 | 数据源：`geckoterminal` / `coingecko` |
+| source_ref | VARCHAR(128) | 是 | NULL | 取价用的池子地址（geckoterminal）或 coin id（coingecko） |
+| confidence | VARCHAR(8) | 否 | 无 | 可信度：`high`（深池或主流聚合价）/ `medium` / `low`（浅池或推导价，只作参考） |
+| reference_price_usd | NUMERIC(38,18) | 是 | NULL | 链下参考价（链上合成资产用于交叉校验）；一般为 NULL |
+| fetched_at | TIMESTAMPTZ | 否 | 无 | 写入时间 |
+
+**约束**：主键 `(chain, token_address, granularity, bucket_start)`。冲突时保留已有值（过去的价格不变）。
+
+## 15. external_call_ledger
+
+外部调用额度账本，按天汇总。所有 RPC 和外部 HTTP 调用先在进程内存里按维度累加（`alpha_core.metering.InMemoryCallMeter`），
+由调用方在任务结束或定时调用 `ExternalCallLedgerRepository.flush` 叠加写入，不在每次调用时写库。
+用来回答"额度花在哪个应用、哪个任务、哪个方法上"，也为取数规划器提供实测单价。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| day | DATE | 否 | 无 | UTC 日期；联合主键之一 |
+| app | VARCHAR(32) | 否 | 无 | 发起调用的应用，如 `wallet-analyzer` / `lp-backtest` / `live-signal` / `oneoff`；联合主键之一 |
+| provider | VARCHAR(32) | 否 | 无 | 数据源供应商，如 `nodereal` / `publicnode` / `ankr` / `sourcify` / `geckoterminal`；联合主键之一 |
+| method | VARCHAR(64) | 否 | 无 | RPC 方法名或 HTTP 接口路径；联合主键之一 |
+| job_ref | VARCHAR(64) | 否 | `''` | 关联的任务或会话，如 `job:12`、`session:3`；空串表示无关联（不用 NULL，避免主键失效）；联合主键之一 |
+| status | VARCHAR(16) | 否 | 无 | 调用结果：`ok` / `rate_limited`（限流或配额耗尽）/ `error`；联合主键之一 |
+| call_count | BIGINT | 否 | 0 | 调用次数 |
+| est_cu | BIGINT | 是 | NULL | 估算的计费单位合计；只要有一次调用单价未知就为 NULL，表示合计不完整 |
+| updated_at | TIMESTAMPTZ | 否 | `now()` | 最后一次累加时间 |
+
+**约束**：主键 `(day, app, provider, method, job_ref, status)`；写入时累加 `call_count` 和 `est_cu`。
+
+## 16. chain_state_cache
+
+可变链上状态（余额、池子 slot0 等）的短时缓存。有效期由读取方决定（默认 60 秒），过期的值视为不存在；
+同一个键重复写入时覆盖。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| key | VARCHAR(256) | 否 | 无 | 缓存键，如 `balance:<token>:<owner>`、`slot0:<pool>`；联合主键之一 |
+| value | JSONB | 否 | 无 | 缓存值（可 JSON 序列化） |
+| block_number | BIGINT | 是 | NULL | 读取时的区块号；未知时为 NULL |
+| fetched_at | TIMESTAMPTZ | 否 | 无 | 读取时间，用于判断是否过期 |
+
+**约束**：主键 `(chain, key)`。

@@ -15,12 +15,15 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import requests
 from alpha_core.errors import DataSourceUnavailableError
+from alpha_core.metering import CallMeter, CallStatus, NullCallMeter
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from ._http import endpoint_label
 from .base import MarketDataSource, MinuteOhlcvPoint, OhlcvPoint, PoolMarketSnapshot
 
 logger = logging.getLogger(__name__)
@@ -56,9 +59,15 @@ def _parse_iso8601(value) -> datetime | None:
 class GeckoTerminalClient(MarketDataSource):
     """GeckoTerminal 客户端，内置限流节流与重试。"""
 
-    def __init__(self, network: str = "bsc", session: requests.Session | None = None) -> None:
+    def __init__(
+        self, network: str = "bsc", session: requests.Session | None = None, *, meter: CallMeter | None = None
+    ) -> None:
+        """
+        @param meter 外部调用计量器；不传则不记账（现有调用方不传，行为不变）
+        """
         self._network = network
         self._session = session or requests.Session()
+        self._meter: CallMeter = meter or NullCallMeter()
         self._lock = threading.Lock()
         self._last_call_at: float = 0.0
 
@@ -79,6 +88,13 @@ class GeckoTerminalClient(MarketDataSource):
     def _get(self, path: str, *, params: dict | None = None) -> dict:
         self._throttle()
         resp = self._session.get(f"{BASE_URL}{path}", params=params, timeout=15)
+        if resp.status_code == 429:
+            status = CallStatus.RATE_LIMITED
+        elif resp.status_code in _RETRYABLE_STATUS_CODES:
+            status = CallStatus.ERROR
+        else:
+            status = CallStatus.OK
+        self._meter.record("geckoterminal", endpoint_label(path), cu=0, status=status)
         if resp.status_code in _RETRYABLE_STATUS_CODES:
             raise _RetryableHttpError(f"GET {path} -> {resp.status_code}")
         if resp.status_code == 404:
@@ -175,3 +191,78 @@ class GeckoTerminalClient(MarketDataSource):
             for row in rows
         ]
         return sorted(points, key=lambda p: p.ts_event)
+
+    def get_token_pools(self, token_address: str) -> list[TokenPool]:
+        """列出包含该 token 的池子（GeckoTerminal 默认按热度排序，第一页约 20 个）。
+
+        实测返回：`relationships.base_token/quote_token.data.id` 形如 `bsc_0x...`，
+        `attributes.reserve_in_usd` 为字符串形式的 TVL。
+        """
+        try:
+            payload = self._get(f"/networks/{self._network}/tokens/{token_address.lower()}/pools", params={"page": 1})
+        except DataSourceUnavailableError:
+            return []
+        pools: list[TokenPool] = []
+        for entry in payload.get("data", []):
+            attrs = entry.get("attributes", {})
+            rel = entry.get("relationships", {})
+
+            def _token(side: str) -> str:
+                raw = rel.get(side, {}).get("data", {}).get("id", "")
+                return raw.split("_", 1)[-1].lower()
+
+            pools.append(
+                TokenPool(
+                    pool_address=attrs.get("address", "").lower(),
+                    base_token=_token("base_token"),
+                    quote_token=_token("quote_token"),
+                    reserve_usd=_to_float(attrs.get("reserve_in_usd")),
+                    dex_id=rel.get("dex", {}).get("data", {}).get("id"),
+                )
+            )
+        return pools
+
+    def get_usd_ohlcv_before(
+        self, pool_address: str, token_address: str, *, timeframe: str, before_timestamp: int, limit: int = 1
+    ) -> list[UsdCandle]:
+        """取 `token_address` 在该池子里的美元 K 线，起点早于 `before_timestamp`（秒），按时间升序返回。
+
+        和 `get_daily_ohlcv` 不同，这里用 `currency=usd` + `token=<地址>`：要的是某个 token 的
+        美元价格（给历史事件计价），不是池子的 base/quote 汇率。
+        @param timeframe `day` 或 `hour`
+        """
+        try:
+            payload = self._get(
+                f"/networks/{self._network}/pools/{pool_address}/ohlcv/{timeframe}",
+                params={
+                    "aggregate": 1,
+                    "before_timestamp": before_timestamp,
+                    "limit": limit,
+                    "currency": "usd",
+                    "token": token_address.lower(),
+                },
+            )
+        except DataSourceUnavailableError:
+            return []
+        rows = payload.get("data", {}).get("attributes", {}).get("ohlcv_list", [])
+        candles = [UsdCandle(start=datetime.fromtimestamp(r[0], tz=UTC), close_usd=float(r[4])) for r in rows]
+        return sorted(candles, key=lambda c: c.start)
+
+
+@dataclass(frozen=True)
+class TokenPool:
+    """包含某个 token 的一个池子。"""
+
+    pool_address: str
+    base_token: str  # 小写地址
+    quote_token: str  # 小写地址
+    reserve_usd: float | None  # 池子 TVL（美元）；未知为 None
+    dex_id: str | None  # GeckoTerminal 的 DEX 标识，如 pancakeswap-v3-bsc
+
+
+@dataclass(frozen=True)
+class UsdCandle:
+    """一根美元计价的 K 线（只保留计价需要的字段）。"""
+
+    start: datetime  # K 线起点（UTC）
+    close_usd: float  # 收盘价（美元）

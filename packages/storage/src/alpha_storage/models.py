@@ -3,8 +3,25 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import CHAR, TIMESTAMP, BigInteger, Integer, Numeric, Text, UniqueConstraint
+from sqlalchemy import (
+    CHAR,
+    TIMESTAMP,
+    BigInteger,
+    Boolean,
+    Date,
+    Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -191,5 +208,136 @@ class TokenRow(Base):
 
     chain: Mapped[str] = mapped_column(CHAR(10), primary_key=True)
     token_address: Mapped[str] = mapped_column(CHAR(42), primary_key=True)  # 统一小写存储
-    decimals: Mapped[int] = mapped_column(Integer)
+    decimals: Mapped[int] = mapped_column(Integer)  # NFT（erc721/erc1155）记 0
     fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))  # 首次查到并落库的时间
+    symbol: Mapped[str | None] = mapped_column(String(64))  # 代币符号；读不出来时为 NULL
+    name: Mapped[str | None] = mapped_column(String(128))  # 代币名称；读不出来时为 NULL
+    standard: Mapped[str | None] = mapped_column(String(8))  # erc20/erc721/erc1155；老数据为 NULL，按 erc20 理解
+    source: Mapped[str] = mapped_column(String(16), server_default="rpc")  # rpc/indexer：元数据从哪来
+    risk_flag: Mapped[str] = mapped_column(String(16), server_default="normal")  # normal/spam/impersonator/hacked
+    updated_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))  # 元数据最后一次补全的时间
+
+
+# ---------------------------------------------------------------------------
+# 钱包分析 M1：通用链数据缓存与运维表（迁移 0006）。
+# 文本列一律 VARCHAR（不用 CHAR，避免尾部空格）；地址、哈希、topic 统一小写且带 0x 前缀。
+# ---------------------------------------------------------------------------
+
+
+class BlockTimeRow(Base):
+    """区块出块时间。不可变，懒加载写入，严禁全量回填（BSC 一年约 7000 万个区块）。"""
+
+    __tablename__ = "block_times"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)  # 链标识，取值见 alpha_core.types.Chain
+    block_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    block_time: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))  # 出块时间（UTC）
+    source: Mapped[str] = mapped_column(String(16))  # rpc/indexer/wss/receipt，见 alpha_core.ports.BlockTimeSource
+
+
+class ChainTxRow(Base):
+    """交易基本信息。来自地址索引源或回执；回执和日志入库后 `receipt_fetched` 置为 true。"""
+
+    __tablename__ = "chain_txs"
+    __table_args__ = (
+        Index("ix_chain_txs_chain_block", "chain", "block_number"),
+        Index("ix_chain_txs_missing_receipt", "chain", postgresql_where=text("receipt_fetched = false")),
+    )
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String(66), primary_key=True)
+    block_number: Mapped[int] = mapped_column(BigInteger)
+    tx_index: Mapped[int | None] = mapped_column(Integer)  # 块内序号；未知时为 NULL
+    from_address: Mapped[str] = mapped_column(String(42))
+    to_address: Mapped[str | None] = mapped_column(String(42))  # 创建合约的交易为 NULL
+    value_raw: Mapped[Decimal] = mapped_column(Numeric(78, 0), server_default="0")  # 原生币数量（wei）
+    method_selector: Mapped[str | None] = mapped_column(String(10))  # 调用数据前 4 字节；未知时为 NULL
+    status: Mapped[int | None] = mapped_column(SmallInteger)  # 1 成功 / 0 失败 / NULL 未知
+    gas_used: Mapped[int | None] = mapped_column(BigInteger)
+    effective_gas_price: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # wei
+    contract_address: Mapped[str | None] = mapped_column(String(42))  # 创建合约的交易所创建的地址
+    receipt_fetched: Mapped[bool] = mapped_column(Boolean, server_default=false())  # 回执和日志是否已入库
+    source: Mapped[str] = mapped_column(String(16))  # indexer/rpc：这条记录最初从哪来
+    first_seen_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class ChainLogRow(Base):
+    """回执里的日志。只存和已分析钱包相关的交易，不做全链归档。"""
+
+    __tablename__ = "chain_logs"
+    __table_args__ = (
+        Index("ix_chain_logs_address_topic0", "chain", "address", "topic0"),
+        Index("ix_chain_logs_topic0", "chain", "topic0"),
+    )
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String(66), primary_key=True)
+    log_index: Mapped[int] = mapped_column(Integer, primary_key=True)  # 在整个区块内的日志序号
+    block_number: Mapped[int] = mapped_column(BigInteger)
+    address: Mapped[str] = mapped_column(String(42))  # 发出日志的合约
+    topic0: Mapped[str | None] = mapped_column(String(66))
+    topic1: Mapped[str | None] = mapped_column(String(66))
+    topic2: Mapped[str | None] = mapped_column(String(66))
+    topic3: Mapped[str | None] = mapped_column(String(66))
+    data: Mapped[str] = mapped_column(Text)  # 带 0x 前缀
+
+
+class AbiCacheRow(Base):
+    """ABI 和签名查询结果，包括"查不到"的负缓存（到 retry_after 前不重复查询）。"""
+
+    __tablename__ = "abi_cache"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)  # 签名类查询记 '*'
+    key_type: Mapped[str] = mapped_column(String(16), primary_key=True)  # address/function/event
+    key: Mapped[str] = mapped_column(String(66), primary_key=True)  # 地址、4 字节选择器或 topic0
+    status: Mapped[str] = mapped_column(String(16))  # success/not_found/invalid
+    source: Mapped[str | None] = mapped_column(String(32))  # sourcify/openchain/4byte；未命中为 NULL
+    name: Mapped[str | None] = mapped_column(String(256))  # 合约名或首选签名文本
+    abi: Mapped[list | None] = mapped_column(JSONB)  # 地址类：ABI 数组；签名类：候选签名数组
+    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+    retry_after: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))  # 负缓存到期时间
+
+
+class PricePointRow(Base):
+    """历史价格。只缓存已经完全过去的时间桶（未收盘的桶会变）。"""
+
+    __tablename__ = "price_points"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    token_address: Mapped[str] = mapped_column(String(42), primary_key=True)
+    granularity: Mapped[str] = mapped_column(String(8), primary_key=True)  # 1h/1d
+    bucket_start: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), primary_key=True)  # 时间桶起点
+    price_usd: Mapped[Decimal] = mapped_column(Numeric(38, 18))  # 该时间桶收盘价（美元）
+    source: Mapped[str] = mapped_column(String(32))  # geckoterminal/coingecko
+    source_ref: Mapped[str | None] = mapped_column(String(128))  # 取价用的池子地址或 coin id
+    confidence: Mapped[str] = mapped_column(String(8))  # high/medium/low
+    reference_price_usd: Mapped[Decimal | None] = mapped_column(Numeric(38, 18))  # 链下参考价；一般为 NULL
+    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+
+
+class ExternalCallLedgerRow(Base):
+    """外部调用额度账本，按天汇总；由 `ExternalCallLedgerRepository.flush` 累加写入。"""
+
+    __tablename__ = "external_call_ledger"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)  # UTC 日期
+    app: Mapped[str] = mapped_column(String(32), primary_key=True)  # wallet-analyzer/lp-backtest/live-signal/oneoff
+    provider: Mapped[str] = mapped_column(String(32), primary_key=True)  # nodereal/publicnode/sourcify/...
+    method: Mapped[str] = mapped_column(String(64), primary_key=True)  # RPC 方法名或接口路径
+    job_ref: Mapped[str] = mapped_column(String(64), primary_key=True, server_default="")  # 空串表示无关联
+    status: Mapped[str] = mapped_column(String(16), primary_key=True)  # ok/rate_limited/error
+    call_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    est_cu: Mapped[int | None] = mapped_column(BigInteger)  # 估算 CU；有单价未知的调用时为 NULL
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class ChainStateCacheRow(Base):
+    """可变链上状态（余额、slot0 等）的短时缓存；有效期由读取方决定。"""
+
+    __tablename__ = "chain_state_cache"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    key: Mapped[str] = mapped_column(String(256), primary_key=True)  # 如 balance:<token>:<owner>
+    value: Mapped[dict | list] = mapped_column(JSONB)
+    block_number: Mapped[int | None] = mapped_column(BigInteger)  # 读取时的区块号；未知为 NULL
+    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
