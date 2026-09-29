@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from alpha_core.chain_data import TxInfo, TxReceipt
+from eth_utils import keccak
 
 
 class GasModel(StrEnum):
@@ -68,3 +69,16 @@ def gas_paid(tx: TxInfo, receipt: TxReceipt, rules: ChainRules) -> int:
             raise ValueError(f"交易 {tx.tx_hash} 的回执缺少 l1Fee，op_stack 链无法计算 gas")
         fee += receipt.l1_fee
     return fee
+
+
+def create2_address(variant: Create2Variant, deployer: str, salt: bytes, init_code_hash: str) -> str:
+    """按 CREATE2 公式在本地算出合约地址（小写、带 0x），不需要任何 RPC。
+
+    @param deployer 执行 CREATE2 的合约（Uniswap V3 是 factory，PancakeSwap V3 是单独的 pool deployer）
+    @param salt 32 字节盐，由家族按自己的规则算（V3 是 keccak(abi.encode(token0, token1, fee))）
+    @param init_code_hash 被部署合约 init code 的 keccak，写在实例配置里
+    """
+    if variant is Create2Variant.STANDARD:
+        digest = keccak(b"\xff" + bytes.fromhex(deployer[2:]) + salt + bytes.fromhex(init_code_hash[2:]))
+        return "0x" + digest.hex()[-40:]
+    raise NotImplementedError(f"CREATE2 变体 {variant} 尚未实现")

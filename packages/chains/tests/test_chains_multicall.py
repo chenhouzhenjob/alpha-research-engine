@@ -22,7 +22,7 @@ class FakeChain:
         self.quota = quota
         self.batches: list[int] = []
 
-    def raw_call(self, *, to: str, data: str) -> bytes:
+    def raw_call(self, *, to: str, data: str, block="latest") -> bytes:
         assert to == MULTICALL3_ADDRESS
         raw = bytes.fromhex(data[2:])
         assert raw[:4].hex() == "bce38bd7"

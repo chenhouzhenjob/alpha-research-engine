@@ -3,7 +3,7 @@
 - `pool.py`：池子层面的机制（PoolCreated、两种 Swap 变体、getPool、slot0），完全参数化，
   lp-backtest / live-signal 通过 `plugins/pancakeswap_v3.py` 使用；
 - `decoder.py`：钱包视角的 NPM 仓位解码；`calls.py`：NPM 调用数据解析；
-- 估值随 M2 步骤 8 加入。
+- `valuation.py`、`math.py`：NFT 仓位估值（整数 TickMath，与链上逐 wei 相等）。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from pydantic import Field
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import DECREASE, INCREASE, NPM_COLLECT, UniswapV3Decoder
 from .pool import POOL_CREATED, Variant
+from .valuation import UniswapV3Valuer
 
 
 class UniswapV3Options(FamilyOptions):
@@ -39,4 +40,16 @@ class UniswapV3Family(ProtocolFamily):
             instance_key=deployment.instance_key,
             decoder_version=cls.decoder_version(),
             position_managers=frozenset(deployment.roles.get("position_manager", ())),
+        )
+
+    @classmethod
+    def valuer(cls, deployment, profile):
+        roles = deployment.roles
+        deployer = (roles.get("pool_deployer") or roles["factory"])[0]
+        return UniswapV3Valuer(
+            instance_key=deployment.instance_key,
+            position_manager=roles["position_manager"][0],
+            pool_deployer=deployer,
+            init_code_hash=deployment.options.pool_init_code_hash,
+            create2_variant=profile.create2_variant,
         )

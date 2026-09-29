@@ -4,7 +4,7 @@
 以及（后续步骤补上的）怎么解码、怎么发现合约、怎么估值。具体协议（PancakeSwap V2、Uniswap V2……）
 是家族的实例，只写配置不写代码。
 
-接口分步补齐：配置相关部分和解码器（`decoder`）已有；合约发现在步骤 12、估值在步骤 8
+接口分步补齐：配置相关部分、解码器（`decoder`）、估值器（`valuer`）已有；合约发现在步骤 12
 随第一个实现一起加入，不提前定义没有实现的接口。
 """
 
@@ -16,8 +16,10 @@ from typing import TYPE_CHECKING, ClassVar
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
+    from ..config.chain_profiles import ChainProfile
     from ..config.instances import Deployment
     from ..decoding.evm.dispatch import FamilyDecoder
+    from ..valuation.models import PositionValuer
 
 
 class FamilyOptions(BaseModel):
@@ -43,3 +45,11 @@ class ProtocolFamily(ABC):
     @abstractmethod
     def decoder(cls, deployment: Deployment) -> FamilyDecoder:
         """为实例在一条链上的部署构造解码器；合约地址、配置项都从 `deployment` 取，不写死在代码里。"""
+
+    @classmethod
+    def valuer(cls, deployment: Deployment, profile: ChainProfile) -> PositionValuer | None:
+        """为部署构造估值器；家族没有可估值的持仓（例如包装原生币、聚合器）时返回 None。
+
+        @param profile 部署所在链的链画像（CREATE2 变体等链级差异从这里取）
+        """
+        return None

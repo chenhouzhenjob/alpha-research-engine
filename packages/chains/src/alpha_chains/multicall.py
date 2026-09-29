@@ -25,7 +25,7 @@ from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError
 from eth_abi.abi import decode, encode
 from eth_abi.exceptions import DecodingError
 
-from .base import BatchResult
+from .base import BatchResult, BlockRef
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ K = TypeVar("K", bound=Hashable)
 class SupportsRawCall(Protocol):
     """Multicall 需要的最小能力：一个遇到执行错误就立即抛出、不重试的 `eth_call`。"""
 
-    def raw_call(self, *, to: str, data: str) -> bytes: ...
+    def raw_call(self, *, to: str, data: str, block: BlockRef = "latest") -> bytes: ...
 
 
 @dataclass(frozen=True)
@@ -80,26 +80,29 @@ def _decode_try_aggregate(raw: bytes, expected: int) -> list[CallResult]:
     return [CallResult(success=bool(ok), data=bytes(data)) for ok, data in items]
 
 
-def multicall(adapter: SupportsRawCall, calls: list[Call], *, chunk_size: int | None = None) -> list[CallResult]:
+def multicall(
+    adapter: SupportsRawCall, calls: list[Call], *, chunk_size: int | None = None, block: BlockRef = "latest"
+) -> list[CallResult]:
     """执行一批只读子调用，结果顺序与 `calls` 一致。
 
     @param adapter 支持 `raw_call` 的链适配器
     @param calls 子调用列表
     @param chunk_size 初始批次大小；默认读 `BNB_MULTICALL_CHUNK`，未配置为 400
+    @param block 在哪个区块之后的状态上执行；默认最新。同一批读取在同一个区块上，保证估值用到的状态彼此一致
     @returns 每个子调用的结果；整批失败且拆到单个仍失败的子调用 `success=False` 并带 `error`
     @raises RpcQuotaExhaustedError 配额耗尽，调用方应暂停
     """
     size = max(1, chunk_size or default_chunk_size())
     results: list[CallResult] = []
     for start in range(0, len(calls), size):
-        results.extend(_run_chunk(adapter, calls[start : start + size]))
+        results.extend(_run_chunk(adapter, calls[start : start + size], block))
     return results
 
 
-def _run_chunk(adapter: SupportsRawCall, calls: list[Call]) -> list[CallResult]:
+def _run_chunk(adapter: SupportsRawCall, calls: list[Call], block: BlockRef) -> list[CallResult]:
     """执行一批；整批失败时对半拆分递归，直到单个子调用。"""
     try:
-        raw = adapter.raw_call(to=MULTICALL3_ADDRESS, data=_encode_try_aggregate(calls))
+        raw = adapter.raw_call(to=MULTICALL3_ADDRESS, data=_encode_try_aggregate(calls), block=block)
         return _decode_try_aggregate(raw, len(calls))
     except RpcQuotaExhaustedError:
         raise
@@ -109,7 +112,7 @@ def _run_chunk(adapter: SupportsRawCall, calls: list[Call]) -> list[CallResult]:
             return [CallResult(success=False, data=b"", error=str(exc))]
         mid = (len(calls) + 1) // 2
         logger.info("Multicall 批次 %d 执行失败，对半拆分重试: %s", len(calls), exc)
-        return _run_chunk(adapter, calls[:mid]) + _run_chunk(adapter, calls[mid:])
+        return _run_chunk(adapter, calls[:mid], block) + _run_chunk(adapter, calls[mid:], block)
 
 
 def _decode_uint(data: bytes) -> int | None:

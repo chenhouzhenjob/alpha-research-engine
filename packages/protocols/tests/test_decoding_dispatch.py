@@ -41,7 +41,13 @@ RESOLVED_BY_UNISWAP_V3 = {
     "ethereum/uniswap_v3_like/exit_multicall_unwrap",
     "base/uniswap_v3_like/exit_multicall_unwrap",
 }
-STILL_NEEDS_INFERENCE = NEEDS_INFERENCE - RESOLVED_BY_WRAPPED_NATIVE - RESOLVED_BY_UNISWAP_V3
+# 接入 uniswap_v2_like 后：路由的原生币转出（含带转账税 token）和多付退款由家族推断，余额闭合
+RESOLVED_BY_UNISWAP_V2 = {
+    f"{chain}/uniswap_v2_like/{case}"
+    for chain in ("bsc", "ethereum", "base")
+    for case in ("remove_liquidity_eth", "swap_tokens_for_eth")
+} | {"bsc/uniswap_v2_like/add_liquidity_eth", "ethereum/uniswap_v2_like/swap_tokens_for_eth_tax_token"}
+STILL_NEEDS_INFERENCE = NEEDS_INFERENCE - RESOLVED_BY_WRAPPED_NATIVE - RESOLVED_BY_UNISWAP_V3 - RESOLVED_BY_UNISWAP_V2
 # 家族推断出的是事实，但暴露了另一笔不可见的内部转移：清算人合约把 0.000583 BNB 包装成 WBNB（Deposit
 # 证明它付了这笔钱），而它收到这笔 BNB 的内部调用在没有内部交易数据时看不到。只做通用解码时两笔不可见
 # 的转移恰好相抵、"碰巧"对上；接入家族后如实暴露缺口，并带 internal_unavailable 告警。

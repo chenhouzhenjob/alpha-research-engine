@@ -9,7 +9,9 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
-| 7 uniswap_v3_like 解码 | ✅ 2026-09-29（未提交） | `families/uniswap_v3_like/{decoder,calls}.py`、家族类与配置项、`instances/{pancakeswap-v3,uniswap-v3}.yaml`（BSC 上的 PancakeSwap V3；以太坊、Base 上的 Uniswap V3）。11 个 V3 样本全部由家族解码、持仓键带链；三条链的 `unwrapWETH9` 和 BSC 的 `refundETH` 推断后余额闭合；基准钱包的退出按 `fee = collect − decrease` 拆出本金和手续费，与链上 DecreaseLiquidity / Collect 数量逐一相等 |
+| 9 uniswap_v2_like | ✅ 2026-09-29（未提交） | `families/uniswap_v2_like/{calls,decoder,valuation}.py`、`instances/{pancakeswap-v2,uniswap-v2}.yaml`。经路由添加 / 移除流动性、交换（含带转账税 token）的解码，三条链的 8 个原生币推断样本余额闭合；LP 估值在 4 笔真实移除流动性交易（三条链）上与 Burn 事件逐 wei 相等（含协议费稀释） |
+| 8 估值框架 + V3 估值 | ✅ 2026-09-29（未提交） | `valuation/{models,dispatch}.py`（多轮读取、嵌套解包、组成部分继承、深度上限）、`families/uniswap_v3_like/{math,valuation}.py`（整数 TickMath、SqrtPriceMath、feeGrowthInside）、`runtime.valuers_for / multicall_reader / value`、Multicall 支持指定区块。三条链 6 个真实仓位（每条链区间内、区间外各一）的本金和未领手续费，与链上以 owner 身份静态调用 `decreaseLiquidity`、`collect` 的返回值逐 wei 相等 |
+| 7 uniswap_v3_like 解码 | ✅ 2026-09-29 | `families/uniswap_v3_like/{decoder,calls}.py`、家族类与配置项、`instances/{pancakeswap-v3,uniswap-v3}.yaml`（BSC 上的 PancakeSwap V3；以太坊、Base 上的 Uniswap V3）。11 个 V3 样本全部由家族解码、持仓键带链；三条链的 `unwrapWETH9` 和 BSC 的 `refundETH` 推断后余额闭合；基准钱包的退出按 `fee = collect − decrease` 拆出本金和手续费，与链上 DecreaseLiquidity / Collect 数量逐一相等 |
 | 6 旧插件迁移 | ✅ 2026-09-29 | V3 池子的通用机制（PoolCreated、两种 Swap 变体、getPool、slot0）迁到 `families/uniswap_v3_like/pool.py`，完全参数化；`plugins/pancakeswap_v3.py` 只保留 PancakeSwap（BSC）的常量和 CAKE 排放，方法委托过去。插件原有 4 个测试不改、全部通过，lp-backtest、live-signal、metrics 的测试结果与迁移前相同 |
 | 5 分派、认领、整合原语、推断钩子、wrapped_native | ✅ 2026-09-29 | `decoding/claims.py`（流水账：推断、认领、冲突检测）、`decoding/consolidate.py`、`decoding/evm/dispatch.py`（家族解码器接口、`FamilyRun`、分派顺序）、`decoding/evm/pipeline.py`、`runtime.py`（把链画像、实例配置、家族组装起来）、`families/wrapped_native/`、`instances/wrapped-native.yaml`。三条链的 WBNB/WETH 解包样本完整对上余额 |
 | 4 链画像、实例配置、家族接口 | ✅ 2026-09-29 | `chains/{bsc,ethereum,base}.yaml`（17 个基础资产地址链上核实）、`config/chain_profiles.py`、`config/instances.py`、`families/base.py` 与注册表。金标准测试改为从链画像取链规则和基础资产，结果不变 |
@@ -55,6 +57,19 @@
   - 只有 `Collect`、同一笔交易里没有 `DecreaseLiquidity` 时，记 `claim/lp_fee` 并标 `split_deferred`：它可能包含更早交易里挂起的本金，单笔解码无法判断，由 M3 按挂起本金结转；
   - 只有 `DecreaseLiquidity` 时，本金留在 NPM 的 tokensOwed 里、没有资产流动，产出状态事件 `informational/none`（extra.action = decrease_liquidity），供 M3 记挂起本金；
   - `collect` 的收款方是 NPM 时，去向从调用数据读（`unwrapWETH9` / `sweepToken` 的收款方）；读不到就告警，不猜。
+- 步骤 8 对设计的调整：
+  - 估值器接口改为 `plan(request, reads) → 还要读的列表` + `unwrap(request, reads)`：读取可以分多轮，后一轮依赖前一轮的结果（V3 先读仓位才知道是哪个池子）。原设计的一次性 `plan_reads` 表达不了这种依赖；
+  - 估值请求带可选的 `amount_raw`：为 None 时按持有人当前持有估值，嵌套解包时由调度器给出具体数量；
+  - 嵌套解包时，外层是手续费或奖励（例如以 LP 形式发放）的，里面拆出来的"本金"归为外层的那一类；
+  - 估值器构造时拿到链画像，CREATE2 变体等链级差异从链画像取；V3 的池子地址用 CREATE2 在本地算，不额外读；
+  - 读取的执行放在 `runtime.multicall_reader`，同一批在同一个区块上执行，保证状态彼此一致；估值框架和估值器都不依赖链适配器；
+  - 估值样本放在 `tests/valuation_golden/`，不和解码样本 `tests/golden/<chain>/<family>/` 混放。
+- 步骤 9 的实现约定：
+  - `_mintFee` 常数已对照 Sourcify 上的交易对合约源码核实：PancakeSwap `×8 / (rootK×17 + rootKLast×8)`，Uniswap `/ (rootK×5 + rootKLast)`，统一成 `L = ts·(rootK−rootKLast)·n / (rootK·d + rootKLast·n)`；
+  - 取回数量用交易对实际持有的 token 余额（`balanceOf`）算，rootK 用储备（`getReserves`）算，与合约一致；
+  - 只处理经路由的交互：路由用 CREATE2 算交易对地址、只和自己工厂的交易对交互，所以路由调用里出现的交易对都属于本实例；钱包直接和交易对交互的情况要等识别第一层（步骤 12）把交易对登记进 contract_registry；
+  - 交换按资产算净额后只认领净方向上的流水，反方向的（找零、退款以外的回流）留给兜底；风险 token 不参与净额；
+  - Burn 校验要求交易所在区块里、这笔交易之前没有别的交易动过这个交易对，否则前一个区块的状态不等于执行时的状态（脚本会检查）。
 
 ## 1. 目标与原则
 
