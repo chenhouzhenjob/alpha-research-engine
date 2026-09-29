@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from .base import ProtocolFamily
+from .wrapped_native import WrappedNativeFamily
 
 # 家族键 → 家族。首批家族随各自的步骤加入（规划第 8 节）。
-FAMILIES: dict[str, type[ProtocolFamily]] = {}
+FAMILIES: dict[str, type[ProtocolFamily]] = {
+    WrappedNativeFamily.key: WrappedNativeFamily,
+}

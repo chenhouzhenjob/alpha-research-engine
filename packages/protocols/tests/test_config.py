@@ -88,6 +88,10 @@ class _FakeFamily(ProtocolFamily):
     roles = frozenset({"factory", "router", "wrapped"})
     options_model = _Options
 
+    @classmethod
+    def decoder(cls, deployment):
+        raise NotImplementedError
+
 
 FAMILIES = {"fake_like": _FakeFamily}
 A, B, C = ("0x" + c * 40 for c in "abc")

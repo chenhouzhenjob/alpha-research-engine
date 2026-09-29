@@ -4,16 +4,20 @@
 以及（后续步骤补上的）怎么解码、怎么发现合约、怎么估值。具体协议（PancakeSwap V2、Uniswap V2……）
 是家族的实例，只写配置不写代码。
 
-接口分步补齐：本步骤只有配置相关的部分；解码器接口在步骤 5、合约发现在步骤 12、估值在步骤 8
+接口分步补齐：配置相关部分和解码器（`decoder`）已有；合约发现在步骤 12、估值在步骤 8
 随第一个实现一起加入，不提前定义没有实现的接口。
 """
 
 from __future__ import annotations
 
-from abc import ABC
-from typing import ClassVar
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from ..config.instances import Deployment
+    from ..decoding.evm.dispatch import FamilyDecoder
 
 
 class FamilyOptions(BaseModel):
@@ -34,3 +38,8 @@ class ProtocolFamily(ABC):
     @classmethod
     def decoder_version(cls) -> str:
         return f"{cls.key}@{cls.version}"
+
+    @classmethod
+    @abstractmethod
+    def decoder(cls, deployment: Deployment) -> FamilyDecoder:
+        """为实例在一条链上的部署构造解码器；合约地址、配置项都从 `deployment` 取，不写死在代码里。"""

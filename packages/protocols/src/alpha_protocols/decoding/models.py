@@ -217,6 +217,7 @@ class WarningCode(StrEnum):
 
     INTERNAL_UNAVAILABLE = "internal_unavailable"  # 数据源没给内部交易，而这笔交易很可能有原生币内部转移
     ABI_MISSING = "abi_missing"  # 未知合约的日志找不到能对上的 ABI，只能保留资产流动
+    INFERENCE_MISMATCH = "inference_mismatch"  # 推断出的原生币在数据源给的内部交易里找不到对应记录，没有补流水
     MALFORMED_LOG = "malformed_log"  # 签名是转账或授权，但格式不符合标准，无法解析（资产流动可能不完整）
 
 

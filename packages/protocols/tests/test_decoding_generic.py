@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from _golden import all_case_ids, load
 from alpha_protocols.decoding.evm.flows import TRANSFER, extract
-from alpha_protocols.decoding.evm.generic import decode_generic
+from alpha_protocols.decoding.evm.pipeline import decode_evm_tx
 from alpha_protocols.decoding.models import (
     NATIVE,
     AssetFlowKind,
@@ -90,8 +90,8 @@ def test_every_wallet_erc20_transfer_log_becomes_one_flow(case_id):
 def test_decode_is_deterministic_and_obeys_taxonomy(case_id):
     """全部样本都能解码（finalize 会按分类表校验每条事件），且重复解码结果完全相同。"""
     s = load(case_id)
-    first = decode_generic(s.tx, s.receipt, s.subject, s.context(), s.rules)
-    second = decode_generic(s.tx, s.receipt, s.subject, s.context(), s.rules)
+    first = decode_evm_tx(s.tx, s.receipt, s.subject, s.context(), s.rules)
+    second = decode_evm_tx(s.tx, s.receipt, s.subject, s.context(), s.rules)
     assert first == second
     assert [e.seq for e in first.events] == list(range(len(first.events)))
     claimed = {i for e in first.events for i in e.claimed_flow_ids}
@@ -100,7 +100,7 @@ def test_decode_is_deterministic_and_obeys_taxonomy(case_id):
 
 def _events(case_id, **ctx):
     s = load(case_id)
-    return s, decode_generic(s.tx, s.receipt, s.subject, s.context(**ctx), s.rules)
+    return s, decode_evm_tx(s.tx, s.receipt, s.subject, s.context(**ctx), s.rules)
 
 
 def _kinds(decoded):
@@ -208,13 +208,13 @@ def test_unknown_contract_logs_decoded_with_signature_or_reported():
     assert logs, "样本里签到合约应当发出了日志"
     topic0 = logs[0].topics[0]
 
-    plain = decode_generic(s.tx, s.receipt, s.subject, s.context(), s.rules)
+    plain = decode_evm_tx(s.tx, s.receipt, s.subject, s.context(), s.rules)
     assert emitter in plain.unknown_contracts
     assert any(w.code is WarningCode.ABI_MISSING for w in plain.warnings)
 
     # 候选签名按可信度排序，对不上 topic0 的跳过
     ctx = s.context(event_signatures={topic0: ["Wrong(uint256)", "UserCheckedIn(address)"]})
-    decoded = decode_generic(s.tx, s.receipt, s.subject, ctx, s.rules)
+    decoded = decode_evm_tx(s.tx, s.receipt, s.subject, ctx, s.rules)
     assert not decoded.warnings
     logs_events = [e for e in decoded.events if e.event_subtype is EventSubtype.DECODED_LOG]
     assert logs_events and logs_events[0].extra["event"] == "UserCheckedIn"

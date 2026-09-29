@@ -9,6 +9,7 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
+| 5 分派、认领、整合原语、推断钩子、wrapped_native | ✅ 2026-09-29（未提交） | `decoding/claims.py`（流水账：推断、认领、冲突检测）、`decoding/consolidate.py`、`decoding/evm/dispatch.py`（家族解码器接口、`FamilyRun`、分派顺序）、`decoding/evm/pipeline.py`、`runtime.py`（把链画像、实例配置、家族组装起来）、`families/wrapped_native/`、`instances/wrapped-native.yaml`。三条链的 WBNB/WETH 解包样本完整对上余额 |
 | 4 链画像、实例配置、家族接口 | ✅ 2026-09-29 | `chains/{bsc,ethereum,base}.yaml`（17 个基础资产地址链上核实）、`config/chain_profiles.py`、`config/instances.py`、`families/base.py` 与注册表。金标准测试改为从链画像取链规则和基础资产，结果不变 |
 | 3 通用解码、兜底、风险标记、通用 ABI 解码 | ✅ 2026-09-29 | `decoding/evm/`（`flows`、`rules`、`abi_logs`、`generic`）、`decoding/{context,events,fallback,risk}.py`。62 个样本的原生币流水逐 wei 等于余额差（19 个需要推断的样本单独列出、缺口固定）；每条钱包相关的 ERC20 Transfer 日志恰好对应一条流水；重复解码结果完全相同 |
 | 2 模型、分类表、架构测试 | ✅ 2026-09-29 | `decoding/models.py`、`decoding/taxonomy.py`（28 个组合，每个都声明允许的方向和是否必须认领流水）、`tests/test_architecture.py`（依赖方向、纯度、不写死链和地址，含检查器自检） |
@@ -37,6 +38,11 @@
   - 实例配置的角色地址可以写 `$chain.wrapped_native` 引用链画像，包装原生币实例不用在每条链重复写地址；
   - 家族接口分步补齐：本步骤只有配置相关部分（键、版本、角色、配置项 schema、特征签名），解码器、合约发现、估值接口随第一个实现加入；
   - 各协议的实例 YAML 要用家族的 `options_model` 校验，因此随对应家族的步骤一起提交；本步骤用测试专用的假家族验证加载器。
+- 步骤 5 对设计的调整：
+  - 解码框架不依赖家族的实现方式：框架定义解码器接口（`decoding/evm/dispatch.FamilyDecoder`），家族实现它，二者在 `alpha_protocols/runtime.py` 组装；框架代码里没有任何家族的 import；
+  - 家族推断流水前先找对得上的真实流水（交易 value，或某些实现本身也发 Transfer），有就认领，避免重复计算；
+  - **推断出的事实可能暴露别处的缺口**：清算样本里，清算人合约把 0.000583 BNB 包装成 WBNB（`Deposit` 证明它付了钱），但它收到这笔 BNB 的内部调用不可见。只做通用解码时两笔不可见的转移恰好相抵，接入家族后如实暴露缺口。家族在这种情况（包装用的原生币不是交易 value、又没有内部交易数据）下发 `internal_unavailable` 告警；
+  - 数据源给了内部交易时，推断原生币改为匹配已有的内部流水；匹配不上记 `inference_mismatch` 告警、不补流水。
 
 ## 1. 目标与原则
 
