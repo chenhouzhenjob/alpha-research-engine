@@ -44,7 +44,9 @@ def _decode_unknown_logs(
     for log in sorted(receipt.logs, key=lambda lg: lg.log_index):
         if not log.topics or log.topics[0] in TOKEN_STANDARD_TOPICS or not _in_scope(log, tx, subject):
             continue
-        if log.address in ctx.identities or log.address in ctx.tokens:
+        identity = ctx.identities.get(log.address)
+        # 只有识别出家族的合约才算"认识"；识别结果是 unknown / eoa 的仍按未知合约处理（报出来、尝试 ABI 解码）
+        if (identity is not None and identity.family is not None) or log.address in ctx.tokens:
             continue
         unknown[log.address] = None
         decoded = None

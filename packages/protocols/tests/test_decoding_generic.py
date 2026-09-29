@@ -222,3 +222,14 @@ def test_unknown_contract_logs_decoded_with_signature_or_reported():
     assert logs_events and logs_events[0].extra["event"] == "UserCheckedIn"
     assert logs_events[0].extra["abi_source"] == "signature_guess"
     assert logs_events[0].extra["args"]["arg0"] == s.subject
+
+
+def test_contract_identified_as_unknown_is_still_reported_as_unknown():
+    """识别第一层把查不出协议的合约记为 unknown：它仍然是未知合约，要报出来并尝试 ABI 解码。"""
+    from alpha_protocols.decoding.context import ContractIdentity
+
+    s = load("bsc/generic/misc_checkin")
+    emitter = s.tx.to_address
+    ctx = s.context(identities={emitter: ContractIdentity(emitter, "unknown")})
+    d = decode_evm_tx(s.tx, s.receipt, s.subject, ctx, s.rules)
+    assert emitter in d.unknown_contracts
