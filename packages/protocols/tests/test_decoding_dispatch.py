@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
-from _golden import all_case_ids, load
+from _golden import all_case_ids, discovered_identities, load
 from alpha_core.types import Chain
 from alpha_protocols.decoding.claims import DecodeConflictError, FlowLedger
 from alpha_protocols.decoding.consolidate import net_by_asset, trade_from_net
@@ -47,17 +47,27 @@ RESOLVED_BY_UNISWAP_V2 = {
     for chain in ("bsc", "ethereum", "base")
     for case in ("remove_liquidity_eth", "swap_tokens_for_eth")
 } | {"bsc/uniswap_v2_like/add_liquidity_eth", "ethereum/uniswap_v2_like/swap_tokens_for_eth_tax_token"}
-STILL_NEEDS_INFERENCE = NEEDS_INFERENCE - RESOLVED_BY_WRAPPED_NATIVE - RESOLVED_BY_UNISWAP_V3 - RESOLVED_BY_UNISWAP_V2
-# 家族推断出的是事实，但暴露了另一笔不可见的内部转移：清算人合约把 0.000583 BNB 包装成 WBNB（Deposit
-# 证明它付了这笔钱），而它收到这笔 BNB 的内部调用在没有内部交易数据时看不到。只做通用解码时两笔不可见
-# 的转移恰好相抵、"碰巧"对上；接入家族后如实暴露缺口，并带 internal_unavailable 告警。
-EXPOSED_INTERNAL_GAP = {"bsc/compound_v2_like/liquidation_liquidator"}
+# 接入 compound_v2_like 后：vBNB 的 Borrow / Redeem 由家族推断原生币，余额闭合。清算人样本在只接入
+# wrapped_native 时曾暴露出一笔"看不见的资金来源"（清算人合约把 0.000583 BNB 包装成 WBNB）：那笔 BNB 正是
+# 它把拿到的 vBNB 抵押品赎回得到的，Venus 家族推断出这笔赎回后缺口闭合。
+RESOLVED_BY_COMPOUND_V2 = {
+    "bsc/compound_v2_like/borrow_vbnb",
+    "bsc/compound_v2_like/redeem_vbnb",
+}
+STILL_NEEDS_INFERENCE = (
+    NEEDS_INFERENCE
+    - RESOLVED_BY_WRAPPED_NATIVE
+    - RESOLVED_BY_UNISWAP_V3
+    - RESOLVED_BY_UNISWAP_V2
+    - RESOLVED_BY_COMPOUND_V2
+)
+# 聚合器路由内部走向不透明，按设计不推断，等数据源的内部交易（规划 5.5）
+assert {"bsc/dex_aggregator/swap_dad12b6c", "bsc/dex_aggregator/to_native"} == STILL_NEEDS_INFERENCE
 
 
 def _decode(s, **kw):
-    return decode_tx(
-        Chain(s.chain), s.tx, s.receipt, s.subject, ctx=decode_context(Chain(s.chain), tokens=s.tokens), **kw
-    )
+    ctx = decode_context(Chain(s.chain), tokens=s.tokens, extra_identities=discovered_identities(s.chain))
+    return decode_tx(Chain(s.chain), s.tx, s.receipt, s.subject, ctx=ctx, **kw)
 
 
 @pytest.mark.parametrize("case_id", ALL)
@@ -66,10 +76,7 @@ def test_full_pipeline_reconciles_and_claims_everything(case_id):
     d = _decode(s)
     assert d.unclaimed_flow_ids == ()
     net = _native_net(d.flows, s.subject)
-    if case_id in EXPOSED_INTERNAL_GAP:
-        assert net != s.balance_delta
-        assert any(w.code is WarningCode.INTERNAL_UNAVAILABLE for w in d.warnings)
-    elif case_id in STILL_NEEDS_INFERENCE:
+    if case_id in STILL_NEEDS_INFERENCE:
         assert net != s.balance_delta, "缺口消失了：更新 STILL_NEEDS_INFERENCE"
     else:
         assert net == s.balance_delta

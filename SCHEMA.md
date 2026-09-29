@@ -32,6 +32,7 @@
 | `price_points` | 链数据缓存 | token 历史价格，只缓存已收盘的时间桶 |
 | `external_call_ledger` | 运维 | 外部调用（RPC、HTTP API）按天汇总的额度账本 |
 | `chain_state_cache` | 运维 | 可变链上状态（余额、slot0 等）的短时缓存 |
+| `contract_registry` | 协议识别 | 合约地址的识别结果（属于哪个家族、实例、角色），永久缓存 |
 
 ## 2. 关系概览
 
@@ -418,3 +419,49 @@ token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的�
 | fetched_at | TIMESTAMPTZ | 否 | 无 | 读取时间，用于判断是否过期 |
 
 **约束**：主键 `(chain, key)`。
+
+
+## contract_registry
+
+合约识别结果，每个地址一行，永久缓存（钱包分析 M2 步骤 12）。识别方式由浅到深：实例配置写明的角色地址、
+注册表发现（例如 Comptroller.getAllMarkets）、已有表（pool_candidates）、CREATE2 本地校验、字节码判断 EOA；
+第二阶段起还有签名匹配、LLM 判断、人工确认。人工确认（`confirmed`）的行不会被任何自动流程覆盖。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| address | VARCHAR(42) | 否 | 无 | 地址，小写带 0x；联合主键之一 |
+| kind | VARCHAR(24) | 否 | 无 | 实例角色名（`factory`、`router`、`position_manager`、`comptroller`、`market`……）、`pool` / `pair`，或 `eoa` / `unknown` |
+| family | VARCHAR(32) | 是 | NULL | 协议家族键（`uniswap_v3_like` 等）；EOA、未知合约为 NULL |
+| instance_key | VARCHAR(64) | 是 | NULL | 协议实例键，对应 `alpha_protocols/instances/<instance_key>.yaml`；未命名分叉为 NULL |
+| code_hash | VARCHAR(66) | 是 | NULL | 运行时字节码的 keccak；没查过字节码为 NULL |
+| implementation_address | VARCHAR(42) | 是 | NULL | 代理合约的实现地址；第二阶段填写 |
+| source | VARCHAR(16) | 否 | 无 | 识别方式，取值见下方枚举 |
+| confidence | DOUBLE PRECISION | 否 | 1.0 | 0~1；确定性识别为 1.0 |
+| review_status | VARCHAR(16) | 否 | `'auto'` | 复核状态，取值见下方枚举 |
+| evidence | JSONB | 否 | `'{}'` | 识别依据，例如 CREATE2 的输入（token0、token1、fee）、注册表调用的返回 |
+| identified_at | TIMESTAMPTZ | 否 | `now()` | 第一次识别时间 |
+| updated_at | TIMESTAMPTZ | 否 | `now()` | 最近更新时间 |
+
+**约束**：主键 `(chain, address)`；索引 `(chain, family, instance_key)`；部分索引 `(chain) WHERE review_status = 'pending_review'`（复核队列）。
+`instance_key` 与实例配置文件是逻辑关联，不建表（实例配置以仓库里的 YAML 为唯一真相）。
+
+#### source
+
+| 值 | 含义 |
+|---|---|
+| `static_roles` | 实例配置里写明的角色地址 |
+| `registry_call` | 调用注册表函数发现（例如 Venus Comptroller 的 `getAllMarkets()`） |
+| `known_table` | 查已有表（V3 的 `pool_candidates`） |
+| `create2` | 读出盐的组成部分后用 CREATE2 本地算地址，与该地址一致 |
+| `code` | 只查了字节码：为空是 EOA，非空但没有其他识别结果是 unknown |
+| `llm` | LLM 判断（第二阶段起） |
+| `manual` | 人工录入 |
+
+#### review_status
+
+| 值 | 含义 |
+|---|---|
+| `auto` | 自动识别，直接生效，可被新的自动结果刷新 |
+| `pending_review` | LLM 判断，报告中标注"待复核" |
+| `confirmed` | 人工确认，任何自动流程都不能覆盖 |

@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -140,3 +140,40 @@ class StateCache(Protocol):
         ...
 
     def put(self, chain: str, key: str, value: Any, *, block_number: int | None) -> None: ...
+
+
+class ReviewStatus(StrEnum):
+    """合约识别结果的复核状态（设计文档 6.2）。"""
+
+    AUTO = "auto"  # 自动识别（实例配置、注册表发现、CREATE2 校验、字节码），直接生效，可被新的自动结果刷新
+    PENDING_REVIEW = "pending_review"  # LLM 判断的结果，报告里标注"待复核"
+    CONFIRMED = "confirmed"  # 人工确认，任何自动流程都不能覆盖
+
+
+@dataclass(frozen=True)
+class ContractRecord:
+    """一个地址的识别结果（contract_registry 的一行）。"""
+
+    chain: str
+    address: str  # 小写、带 0x
+    kind: str  # 实例角色名（factory、router、market……）、pool / pair，或 eoa / unknown
+    source: str  # 识别方式：static_roles / registry_call / known_table / create2 / code / llm / manual
+    family: str | None = None  # 家族键；EOA 和未知合约为 None
+    instance_key: str | None = None  # 实例键；未命名分叉为 None
+    code_hash: str | None = None  # 运行时字节码的 keccak；没查过字节码为 None
+    implementation_address: str | None = None  # 代理合约的实现地址（第二阶段）
+    confidence: float = 1.0  # 0~1；确定性识别为 1.0
+    review_status: ReviewStatus = ReviewStatus.AUTO
+    evidence: dict[str, Any] = field(default_factory=dict)  # 识别依据，例如 CREATE2 的输入、注册表调用的返回
+
+
+class ContractRegistryStore(Protocol):
+    """合约识别结果的持久化。"""
+
+    def get_many(self, chain: str, addresses: list[str]) -> dict[str, ContractRecord]:
+        """返回已有的识别结果，键为小写地址；没有记录的地址不在结果里。"""
+        ...
+
+    def upsert_many(self, records: list[ContractRecord]) -> None:
+        """写入识别结果；已是 confirmed 的记录不会被覆盖。"""
+        ...

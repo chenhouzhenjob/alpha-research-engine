@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+from eth_utils import keccak
 from pydantic import Field
 
+from ...identification.plans import Create2Rule, DiscoveryPlan
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import PAIR_BURN, PAIR_MINT, PAIR_SWAP, PAIR_SYNC, UniswapV2Decoder
 from .valuation import UniswapV2Valuer
@@ -47,3 +49,26 @@ class UniswapV2Family(ProtocolFamily):
             fee_numerator=deployment.options.fee_numerator,
             fee_denominator=deployment.options.fee_denominator,
         )
+
+    @classmethod
+    def discovery(cls, deployment, profile):
+        """交易对：读 token0()、token1()，盐 = keccak(token0 ‖ token1)（abi.encodePacked），部署者是工厂。"""
+        return DiscoveryPlan(
+            create2_rules=(
+                Create2Rule(
+                    instance_key=deployment.instance_key,
+                    family=cls.key,
+                    kind="pair",
+                    selectors=(_sel("token0()"), _sel("token1()")),
+                    read_types=("address", "address"),
+                    salt=lambda v: keccak(bytes.fromhex(v[0][2:]) + bytes.fromhex(v[1][2:])),
+                    deployer=deployment.roles["factory"][0],
+                    init_code_hash=deployment.options.pair_init_code_hash,
+                    variant=profile.create2_variant,
+                ),
+            )
+        )
+
+
+def _sel(signature: str) -> str:
+    return "0x" + keccak(text=signature).hex()[:8]

@@ -9,7 +9,12 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
-| 9 uniswap_v2_like | ✅ 2026-09-29（未提交） | `families/uniswap_v2_like/{calls,decoder,valuation}.py`、`instances/{pancakeswap-v2,uniswap-v2}.yaml`。经路由添加 / 移除流动性、交换（含带转账税 token）的解码，三条链的 8 个原生币推断样本余额闭合；LP 估值在 4 笔真实移除流动性交易（三条链）上与 Burn 事件逐 wei 相等（含协议费稀释） |
+| 13 端到端冒烟 | ✅ 2026-09-29（未提交） | 见下方"端到端冒烟结果" |
+| 14 设计文档 | ✅ 2026-09-29（未提交） | 设计文档 12.1（M2 实际范围与差异）、6.1（contract_registry 字段）、10.1（protocols 实际目录结构）、10.4（新增链的验收标准、架构测试） |
+| 12 识别第一层 + contract_registry | ✅ 2026-09-29（未提交） | `identification/{plans,runner}.py`：实例角色、已有表（本地 CREATE2 校验、零 RPC）、CREATE2 校验（批量读盐的组成部分）、字节码判断 EOA；`discover_registries`（Venus getAllMarkets）。V2 / V3 / Venus 家族各自声明发现方式（`ProtocolFamily.discovery`）。`alpha_core.ports.ContractRecord / ContractRegistryStore`、`contract_registry` 表（迁移 `0008`，往返验证通过）、仓储（人工确认的记录不被覆盖）、`DbContractRegistryStore`，已同步 `SCHEMA.md`。测试里 Venus 市场改走正式的 `discover_registries` |
+| 11 dex_aggregator | ✅ 2026-09-29（未提交） | `families/dex_aggregator/`、`instances/aggregator-b300.yaml`。3 笔 token 换 token 的交换两条腿齐全；2 笔换成原生币的只有付出腿，告警 `internal_unavailable` 并标 `incomplete`，不推断 |
+| 10 compound_v2_like（Venus） | ✅ 2026-09-29（未提交） | `families/compound_v2_like/{decoder,valuation}.py`、`instances/venus-core.yaml`。存款、取款、借款、还款、代还、清算（两个视角）、领 XVS；vBNB 的借款、赎回推断原生币后余额闭合，清算人样本的缺口也随之闭合。10 个估值样本（存款、负债、待领奖励）与链上 `balanceOfUnderlying` / `borrowBalanceCurrent` / `venusAccrued` 相等。市场清单暂用固定区块的 `getAllMarkets()` 快照（`tests/fixtures/venus_core_markets.json`），步骤 12 改为正式发现 |
+| 9 uniswap_v2_like | ✅ 2026-09-29 | `families/uniswap_v2_like/{calls,decoder,valuation}.py`、`instances/{pancakeswap-v2,uniswap-v2}.yaml`。经路由添加 / 移除流动性、交换（含带转账税 token）的解码，三条链的 8 个原生币推断样本余额闭合；LP 估值在 4 笔真实移除流动性交易（三条链）上与 Burn 事件逐 wei 相等（含协议费稀释） |
 | 8 估值框架 + V3 估值 | ✅ 2026-09-29（未提交） | `valuation/{models,dispatch}.py`（多轮读取、嵌套解包、组成部分继承、深度上限）、`families/uniswap_v3_like/{math,valuation}.py`（整数 TickMath、SqrtPriceMath、feeGrowthInside）、`runtime.valuers_for / multicall_reader / value`、Multicall 支持指定区块。三条链 6 个真实仓位（每条链区间内、区间外各一）的本金和未领手续费，与链上以 owner 身份静态调用 `decreaseLiquidity`、`collect` 的返回值逐 wei 相等 |
 | 7 uniswap_v3_like 解码 | ✅ 2026-09-29 | `families/uniswap_v3_like/{decoder,calls}.py`、家族类与配置项、`instances/{pancakeswap-v3,uniswap-v3}.yaml`（BSC 上的 PancakeSwap V3；以太坊、Base 上的 Uniswap V3）。11 个 V3 样本全部由家族解码、持仓键带链；三条链的 `unwrapWETH9` 和 BSC 的 `refundETH` 推断后余额闭合；基准钱包的退出按 `fee = collect − decrease` 拆出本金和手续费，与链上 DecreaseLiquidity / Collect 数量逐一相等 |
 | 6 旧插件迁移 | ✅ 2026-09-29 | V3 池子的通用机制（PoolCreated、两种 Swap 变体、getPool、slot0）迁到 `families/uniswap_v3_like/pool.py`，完全参数化；`plugins/pancakeswap_v3.py` 只保留 PancakeSwap（BSC）的常量和 CAKE 排放，方法委托过去。插件原有 4 个测试不改、全部通过，lp-backtest、live-signal、metrics 的测试结果与迁移前相同 |
@@ -70,6 +75,46 @@
   - 只处理经路由的交互：路由用 CREATE2 算交易对地址、只和自己工厂的交易对交互，所以路由调用里出现的交易对都属于本实例；钱包直接和交易对交互的情况要等识别第一层（步骤 12）把交易对登记进 contract_registry；
   - 交换按资产算净额后只认领净方向上的流水，反方向的（找零、退款以外的回流）留给兜底；风险 token 不参与净额；
   - Burn 校验要求交易所在区块里、这笔交易之前没有别的交易动过这个交易对，否则前一个区块的状态不等于执行时的状态（脚本会检查）。
+- 步骤 10 的发现和更正：
+  - **`0x4d2e…5dca` 不是 Venus 的 gateway**：那笔交易里铸出的 vBNB 留在它自己名下、没有转给用户，它还发出若干查不到签名的事件，源码也未在 Sourcify 验证。它是替用户存入 Venus 的第三方协议，已从 `venus-core` 实例移除（步骤 1 时误以为是 Venus 的 `native_gateway`）。从用户视角看，这笔交易只是把 BNB 转给了一个未知合约（T0）；
+  - **"代还"样本实为"用抵押品还款"**：交易由借款人发起，辅助合约 `0x03f0…` 赎回借款人的 vUSDT 替它还款，再把剩余 USDT 退给借款人。借款人视角：vUSDT 赎回、负债减少（状态事件）、收到退回的 USDT；
+  - **清算人是闪电清算合约**：拿到 vBNB 抵押品后立刻赎回成 BNB 再包装成 WBNB。步骤 5 暴露的那笔"看不见的资金来源"（0.000583 BNB）正是这次赎回，Venus 家族推断出赎回的原生币后缺口闭合；
+  - 以资产流水判断钱包视角：只在钱包自己是事件当事人时产出存取、借款事件；清算里的 RepayBorrow 由 LiquidateBorrow 统一处理，不重复计；
+  - 市场由 Comptroller 的 `getAllMarkets()` 发现，识别结果的 kind 为 `market`；在识别第一层（步骤 12）落地之前，测试用固定区块的市场清单构造识别结果。
+- 步骤 12 的实现约定：
+  - 识别的执行（读链、查字节码）通过注入的 reader、code_reader 完成，与估值共用 `runtime.multicall_reader`；发现方式由家族声明成纯数据（`identification/plans.py`），框架执行；
+  - 注册表发现（"一次列出全部"）和按地址识别分开：`discover_registries` 由调用方按链执行一次，`identify` 只处理给定的地址；
+  - 同一个地址可能同时满足 V2 和 V3 的读取（都有 token0 / token1），以 CREATE2 是否对得上为准；V2 交易对没有 `fee()`，读取失败即不属于 V3。
+- M2 暴露的 M1 遗留问题（已单独立项）：链适配器把所有 HTTP 429 都当成"配额耗尽"直接放弃，但 Ankr 的 429 是每秒限速（"retry in 10s"），几秒后就恢复，和 NodeReal 的月额度耗尽不是一回事。冒烟脚本暂时自己退避重试。
+
+## 端到端冒烟结果（基准钱包，2026-09-29）
+
+`scripts/oneoff/2026-09-29_m2-decode-smoke.py`：Ankr 拉交易清单 → 抓交易和回执 → token 元数据 → 注册表发现 + 第一层识别（写本地库 contract_registry）→ 逐笔解码 → 统计。
+
+| 项目 | 结果 |
+|---|---|
+| 和钱包有关的交易 | 3908 笔（钱包发出 2399，其余是别人发起、落到钱包上的，例如投毒） |
+| 事件 | 9358 条，**未认领流水 0 条**，全部通过分类表校验 |
+| 家族分布 | 兜底 5525、`dex_aggregator` 3069、`uniswap_v3_like` 764 |
+| 覆盖等级（有资产流动的事件） | T2 3833、T0 4235（T0 里 2378 条是 gas） |
+| 聚合器 | 成功交换 1554 笔：1523 笔两条腿齐全；22 笔换成原生币只有付出腿（告警 `internal_unavailable`）；9 笔两者都不是（方法不在交换选择器里，或进出相抵） |
+| V3 NPM | 成功交易 254 笔，254 笔都由家族解码 |
+| 识别 | 1285 个地址：pool 73、pair 5、market 2、实例角色 3、EOA 13、unknown 1188 |
+| 风险标记 | `receive/spam` 415 条、`receive/airdrop` 14 条 |
+| V3 仓位估值 | 124 个 NFT 全部估值成功：1 个仍有流动性（也是唯一有未领手续费的），其余已取空 |
+| 原生币总账 | 解码净额 −74.474 BNB，当前余额 0.021 BNB，**缺口 74.495 BNB**（与 M0 用 Ankr 估算的 74.49 BNB 一致） |
+
+**缺口归因**：
+- 聚合器里没归并出两条腿的 31 笔，逐笔用区块前后余额差核对（29 笔可归因），合计只解释 **1.80 BNB（2.4%）**；
+- 按 24 个时间点比较"解码累计净额"和"链上余额"，缺口集中在两段：前 170 笔交易（+34.5 BNB）和第 1529~2379 笔（约 +34 BNB），其余时段几乎不变；
+- 这两段里原生币流出的主力是钱包直接转给 `0x2bc6a374…`（6 笔 18.8 BNB）、`0xcdd97d05…`（10 笔 49.4 BNB）等地址的普通转账，这些流出都正确解码了；而余额随后被补回来的那部分 BNB **不在钱包的任何一笔交易里**：钱包交易清单里的外部转入只有 89.8 BNB，token 转账清单也没有。它只能是别人的合约通过内部调用转给钱包的（例如交易所的批量提币合约），这种交易不在钱包身上留下任何日志；
+- 结论：约 72.7 BNB 的缺口来自"只有内部调用、没有日志"的转入，不是解码问题，只有接入内部交易数据源（M0 补测 NodeReal，M1 步骤 6b）才能补上。
+
+**冒烟中发现并修复的问题**：
+- 识别结果为 `unknown` / `eoa` 的合约被当成"已识别"，不再报为未知合约、也不尝试 ABI 解码。改为只有识别出家族的才算已识别（补了测试）；
+- Ankr 的每秒限速被链适配器当成额度耗尽直接放弃，已修复（见实施中的新发现），冒烟途中遇到一次限速，按提示等 10 秒后重试成功。
+
+未识别合约里交易数最多的前几个：`0x317cd61f…`（44 笔，领取类 `claimV2`）、`0x8ac78419…`（35）、`0x3d64b91e…`（30）、`0x247fe62d…`（25）、`0x007200c6…`（17，签到 `checkIn()`）。它们是 M4 LLM 识别和第二阶段扩展家族的首批对象。
 
 ## 1. 目标与原则
 
@@ -585,7 +630,6 @@ deployments:
   bsc:
     roles:
       comptroller: ["0xfd36e2c2a6789db23113685031d7f16329158384"]
-      native_gateway: ["0x4d2e4add7bbed906e949954516bb735cd51a5dca"]
     options:
       native_market: "0xa07c5b74c9b40447a954e1466938b865b6bbea36"   # vBNB，底层资产为原生币
       reward_token: "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63"    # XVS，Comptroller.getXVSAddress() 已核实

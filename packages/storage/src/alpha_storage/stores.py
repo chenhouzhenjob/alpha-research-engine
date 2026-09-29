@@ -15,6 +15,7 @@ from alpha_core.ports import (
     AbiKeyType,
     BlockTimeSource,
     CachedState,
+    ContractRecord,
     PriceGranularity,
     PricePoint,
 )
@@ -23,6 +24,7 @@ from alpha_core.types import Chain
 from .db import session_scope
 from .repositories.block_times import BlockTimeRepository
 from .repositories.caches import AbiCacheRepository, ChainStateCacheRepository, PricePointRepository
+from .repositories.contract_registry import ContractRegistryRepository
 
 
 class DbBlockTimeStore:
@@ -73,3 +75,15 @@ class DbStateCache:
     def put(self, chain: str, key: str, value: Any, *, block_number: int | None) -> None:
         with session_scope() as s:
             ChainStateCacheRepository(s).put(chain, key, value, block_number=block_number)
+
+
+class DbContractRegistryStore:
+    """`ContractRegistryStore` 的数据库实现。"""
+
+    def get_many(self, chain: str, addresses: list[str]) -> dict[str, ContractRecord]:
+        with session_scope() as s:
+            return ContractRegistryRepository(s).get_many(chain, addresses)
+
+    def upsert_many(self, records: list[ContractRecord]) -> None:
+        with session_scope() as s:
+            ContractRegistryRepository(s).upsert_many(records)

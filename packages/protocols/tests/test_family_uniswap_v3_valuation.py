@@ -19,7 +19,7 @@ from alpha_protocols.valuation.models import Component, ValuationRequest
 SAMPLES = sorted(
     p
     for p in (Path(__file__).parent / "valuation_golden").glob("*/*.json")
-    if json.loads(p.read_text()).get("kind") != "v2_burn"
+    if "kind" not in json.loads(p.read_text())  # V3 样本没有 kind 字段；V2、Venus 的样本各有自己的测试
 )
 
 

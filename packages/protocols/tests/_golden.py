@@ -14,7 +14,7 @@ from pathlib import Path
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
 from alpha_protocols.config.chain_profiles import chain_profiles
-from alpha_protocols.decoding.context import DecodeContext
+from alpha_protocols.decoding.context import ContractIdentity, DecodeContext
 from alpha_protocols.decoding.evm.rules import ChainRules
 from alpha_protocols.decoding.models import TokenMeta
 
@@ -22,6 +22,26 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 # 链规则和基础资产来自链画像（alpha_protocols/chains/*.yaml）
 PROFILES = {c.value: p for c, p in chain_profiles().items()}
+
+# Venus 核心池的市场清单（固定区块上 Comptroller.getAllMarkets() 的结果）。正式流程由识别第一层的
+# registry_call 发现并写进 contract_registry（步骤 12）；在那之前，测试用这份清单构造识别结果。
+_MARKETS = json.loads((Path(__file__).parent / "fixtures" / "venus_core_markets.json").read_text())
+
+
+def discovered_identities(chain: str) -> dict[str, ContractIdentity]:
+    """识别第一层的注册表发现会找到、但实例配置里没有写明的合约（目前是 Venus 的市场）。
+
+    走正式的 `discover_registries`，读取用固定区块上 getAllMarkets() 的真实返回值回放。
+    """
+    from alpha_core.types import Chain
+    from alpha_protocols.identification.runner import discover_registries
+    from alpha_protocols.runtime import identities_from_records
+    from eth_abi import encode
+
+    if chain != _MARKETS["chain"]:
+        return {}
+    reply = encode(["address[]"], [_MARKETS["markets"]])
+    return identities_from_records(discover_registries(Chain(chain), lambda batch: {r.key: reply for r in batch}))
 
 
 @dataclass(frozen=True)

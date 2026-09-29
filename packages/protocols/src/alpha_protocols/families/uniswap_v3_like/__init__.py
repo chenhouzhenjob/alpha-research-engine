@@ -8,8 +8,11 @@
 
 from __future__ import annotations
 
+from eth_abi import encode as abi_encode
+from eth_utils import keccak
 from pydantic import Field
 
+from ...identification.plans import Create2Rule, DiscoveryPlan
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import DECREASE, INCREASE, NPM_COLLECT, UniswapV3Decoder
 from .pool import POOL_CREATED, Variant
@@ -53,3 +56,27 @@ class UniswapV3Family(ProtocolFamily):
             init_code_hash=deployment.options.pool_init_code_hash,
             create2_variant=profile.create2_variant,
         )
+
+    @classmethod
+    def discovery(cls, deployment, profile):
+        """池子：读 token0()、token1()、fee()，盐 = keccak(abi.encode(token0, token1, fee))，部署者见 valuer。"""
+        roles = deployment.roles
+        return DiscoveryPlan(
+            create2_rules=(
+                Create2Rule(
+                    instance_key=deployment.instance_key,
+                    family=cls.key,
+                    kind="pool",
+                    selectors=(_sel("token0()"), _sel("token1()"), _sel("fee()")),
+                    read_types=("address", "address", "uint24"),
+                    salt=lambda v: keccak(abi_encode(["address", "address", "uint24"], list(v))),
+                    deployer=(roles.get("pool_deployer") or roles["factory"])[0],
+                    init_code_hash=deployment.options.pool_init_code_hash,
+                    variant=profile.create2_variant,
+                ),
+            )
+        )
+
+
+def _sel(signature: str) -> str:
+    return "0x" + keccak(text=signature).hex()[:8]

@@ -4,8 +4,7 @@
 以及（后续步骤补上的）怎么解码、怎么发现合约、怎么估值。具体协议（PancakeSwap V2、Uniswap V2……）
 是家族的实例，只写配置不写代码。
 
-接口分步补齐：配置相关部分、解码器（`decoder`）、估值器（`valuer`）已有；合约发现在步骤 12
-随第一个实现一起加入，不提前定义没有实现的接口。
+接口：配置相关部分、解码器（`decoder`）、估值器（`valuer`）、合约发现方式（`discovery`）。
 """
 
 from __future__ import annotations
@@ -19,6 +18,7 @@ if TYPE_CHECKING:
     from ..config.chain_profiles import ChainProfile
     from ..config.instances import Deployment
     from ..decoding.evm.dispatch import FamilyDecoder
+    from ..identification.plans import DiscoveryPlan
     from ..valuation.models import PositionValuer
 
 
@@ -52,4 +52,9 @@ class ProtocolFamily(ABC):
 
         @param profile 部署所在链的链画像（CREATE2 变体等链级差异从这里取）
         """
+        return None
+
+    @classmethod
+    def discovery(cls, deployment: Deployment, profile: ChainProfile) -> DiscoveryPlan | None:
+        """声明识别第一层怎么发现本部署的子合约（注册表调用、CREATE2 规则）；只靠实例配置的角色地址时返回 None。"""
         return None

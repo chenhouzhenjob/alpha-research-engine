@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from .base import ProtocolFamily
+from .compound_v2_like import CompoundV2Family
+from .dex_aggregator import DexAggregatorFamily
 from .uniswap_v2_like import UniswapV2Family
 from .uniswap_v3_like import UniswapV3Family
 from .wrapped_native import WrappedNativeFamily
@@ -10,6 +12,8 @@ from .wrapped_native import WrappedNativeFamily
 # 家族键 → 家族。首批家族随各自的步骤加入（规划第 8 节）。
 FAMILIES: dict[str, type[ProtocolFamily]] = {
     WrappedNativeFamily.key: WrappedNativeFamily,
+    CompoundV2Family.key: CompoundV2Family,
+    DexAggregatorFamily.key: DexAggregatorFamily,
     UniswapV2Family.key: UniswapV2Family,
     UniswapV3Family.key: UniswapV3Family,
 }

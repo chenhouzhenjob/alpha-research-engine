@@ -182,3 +182,39 @@ def test_ledger_flush_accumulates_and_marks_unknown_cu(session):
     ) == (12, 180)
     assert lines[("eth_foo", "ok")].est_cu is None
     assert meter.snapshot() == {}
+
+
+def test_contract_registry_upsert_keeps_confirmed(session):
+    from alpha_core.ports import ContractRecord, ReviewStatus
+    from alpha_storage.repositories.contract_registry import ContractRegistryRepository
+
+    repo = ContractRegistryRepository(session)
+    pool = "0x" + "ab" * 20
+    human = "0x" + "cd" * 20
+    repo.upsert_many(
+        [
+            ContractRecord(
+                "bsc",
+                pool.upper().replace("0X", "0x"),
+                "pool",
+                "create2",
+                "uniswap_v3_like",
+                "pancakeswap-v3",
+                evidence={"fee": 500},
+            ),
+            ContractRecord(
+                "bsc", human, "router", "manual", "dex_aggregator", "agg", review_status=ReviewStatus.CONFIRMED
+            ),
+        ]
+    )
+    # 自动流程再次写入：pool 被刷新，人工确认的 human 保持不变
+    repo.upsert_many(
+        [
+            ContractRecord("bsc", pool, "pool", "known_table", "uniswap_v3_like", "pancakeswap-v3"),
+            ContractRecord("bsc", human, "unknown", "code"),
+        ]
+    )
+    got = repo.get_many("bsc", [pool, human, "0x" + "ef" * 20])
+    assert set(got) == {pool, human}
+    assert (got[pool].source, got[pool].evidence) == ("known_table", {})
+    assert (got[human].kind, got[human].review_status) == ("router", ReviewStatus.CONFIRMED)

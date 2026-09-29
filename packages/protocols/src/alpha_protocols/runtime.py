@@ -10,10 +10,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from alpha_core.chain_data import TxInfo, TxReceipt
+from alpha_core.ports import ContractRecord
 from alpha_core.types import Chain
 
 from .config.chain_profiles import chain_profiles
@@ -36,6 +37,11 @@ def identities_for(chain: Chain, registry: InstanceRegistry | None = None) -> di
         for (c, address), binding in registry.by_address.items()
         if c == chain
     }
+
+
+def identities_from_records(records: Iterable[ContractRecord]) -> dict[str, ContractIdentity]:
+    """把 contract_registry 的识别结果转成解码上下文用的识别结果（EOA 和未知合约不带家族）。"""
+    return {r.address: ContractIdentity(r.address, r.kind, r.family, r.instance_key) for r in records}
 
 
 def decoders_for(

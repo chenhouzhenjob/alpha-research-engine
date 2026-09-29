@@ -11,6 +11,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Date,
+    Float,
     Index,
     Integer,
     Numeric,
@@ -345,3 +346,27 @@ class ChainStateCacheRow(Base):
     value: Mapped[dict | list] = mapped_column(JSONB)
     block_number: Mapped[int | None] = mapped_column(BigInteger)  # 读取时的区块号；未知为 NULL
     fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+
+
+class ContractRegistryRow(Base):
+    """合约识别结果，每个地址一行，永久缓存（钱包分析 M2 步骤 12，设计见 M2 实施规划第 6 节）。"""
+
+    __tablename__ = "contract_registry"
+    __table_args__ = (
+        Index("ix_contract_registry_family", "chain", "family", "instance_key"),
+        Index("ix_contract_registry_pending", "chain", postgresql_where=text("review_status = 'pending_review'")),
+    )
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    address: Mapped[str] = mapped_column(String(42), primary_key=True)  # 小写、带 0x
+    kind: Mapped[str] = mapped_column(String(24))  # 角色名 / pool / pair / eoa / unknown
+    family: Mapped[str | None] = mapped_column(String(32))  # 家族键；EOA、未知合约为 NULL
+    instance_key: Mapped[str | None] = mapped_column(String(64))  # 实例键；未命名分叉为 NULL
+    code_hash: Mapped[str | None] = mapped_column(String(66))  # 运行时字节码 keccak；未查过为 NULL
+    implementation_address: Mapped[str | None] = mapped_column(String(42))  # 代理合约的实现地址（第二阶段）
+    source: Mapped[str] = mapped_column(String(16))  # static_roles/registry_call/known_table/create2/code/llm/manual
+    confidence: Mapped[float] = mapped_column(Float, server_default="1.0")  # 0~1
+    review_status: Mapped[str] = mapped_column(String(16), server_default="auto")  # auto/pending_review/confirmed
+    evidence: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 识别依据
+    identified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
