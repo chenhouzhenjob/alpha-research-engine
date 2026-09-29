@@ -131,5 +131,12 @@
     "nonce_before": 43,
     "nonce_after": 44,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x7d814b9ed370ec0a502edc3267393bf62d891b62": {
+      "symbol": "BMT",
+      "name": "Bubblemaps",
+      "decimals": 18
+    }
   }
 }

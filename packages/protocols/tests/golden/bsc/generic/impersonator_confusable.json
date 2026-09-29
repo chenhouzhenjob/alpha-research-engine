@@ -6340,5 +6340,12 @@
     "nonce_before": 817,
     "nonce_after": 817,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x7940704160f3a07ae5917673ee28fe53140b1860": {
+      "symbol": "UЅDТ",
+      "name": "UЅDТ",
+      "decimals": 18
+    }
   }
 }

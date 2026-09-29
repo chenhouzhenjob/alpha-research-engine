@@ -101,5 +101,17 @@
     "nonce_before": 41,
     "nonce_after": 42,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": {
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "decimals": 6
+    },
+    "0xd5390300c5db71f80d46f0fa9983fc72d4d1e3da": {
+      "symbol": "KAT",
+      "name": "Katana",
+      "decimals": 18
+    }
   }
 }

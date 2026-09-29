@@ -135,5 +135,12 @@
     "nonce_before": 490,
     "nonce_after": 491,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x5ce033b2bfca3af30b3e8c8457deaf776a8b695a": {
+      "symbol": "BEM",
+      "name": "BEM",
+      "decimals": 8
+    }
   }
 }

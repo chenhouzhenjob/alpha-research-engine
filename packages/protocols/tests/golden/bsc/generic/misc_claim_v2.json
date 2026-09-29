@@ -62,5 +62,12 @@
     "nonce_before": 1368,
     "nonce_after": 1369,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xe3225e11cab122f1a126a28997788e5230838ab9": {
+      "symbol": "XNY",
+      "name": "Codatta XNY",
+      "decimals": 18
+    }
   }
 }

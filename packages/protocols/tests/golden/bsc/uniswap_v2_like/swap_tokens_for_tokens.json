@@ -110,5 +110,17 @@
     "nonce_before": 34264,
     "nonce_after": 34265,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x255e746abb8d9acac00d6d023e5e63e3b8dfa7cd": {
+      "symbol": "IBS",
+      "name": "IBS",
+      "decimals": 18
+    },
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    }
   }
 }

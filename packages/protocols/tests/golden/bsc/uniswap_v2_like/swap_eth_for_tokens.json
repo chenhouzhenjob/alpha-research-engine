@@ -129,5 +129,12 @@
     "nonce_before": 485,
     "nonce_after": 486,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xeaf0193cf1e68922004037470c317cee0f977777": {
+      "symbol": "龙虾人生",
+      "name": "人生可以躺平，龙虾必须翻身",
+      "decimals": 18
+    }
   }
 }

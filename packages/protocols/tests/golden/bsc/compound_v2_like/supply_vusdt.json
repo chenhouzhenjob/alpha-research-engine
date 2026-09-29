@@ -108,5 +108,17 @@
     "nonce_before": 782,
     "nonce_after": 783,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xfd5840cd36d94d7229439859c0112a4185bc0255": {
+      "symbol": "vUSDT",
+      "name": "Venus USDT",
+      "decimals": 8
+    }
   }
 }

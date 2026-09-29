@@ -9,6 +9,7 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
+| 3 通用解码、兜底、风险标记、通用 ABI 解码 | ✅ 2026-09-29 | `decoding/evm/`（`flows`、`rules`、`abi_logs`、`generic`）、`decoding/{context,events,fallback,risk}.py`。62 个样本的原生币流水逐 wei 等于余额差（19 个需要推断的样本单独列出、缺口固定）；每条钱包相关的 ERC20 Transfer 日志恰好对应一条流水；重复解码结果完全相同 |
 | 2 模型、分类表、架构测试 | ✅ 2026-09-29 | `decoding/models.py`、`decoding/taxonomy.py`（28 个组合，每个都声明允许的方向和是否必须认领流水）、`tests/test_architecture.py`（依赖方向、纯度、不写死链和地址，含检查器自检） |
 | 1 金标准样本（BSC） | ✅ 2026-09-29 | 42 个样本（通用 12、WBNB 2、V2 7、V3 6、Venus 13、聚合器 5），清单 `tests/golden/cases.json`，脚本 `scripts/oneoff/2026-09-29_m2-golden-samples.py`。为此给 `alpha_chains` 补了按区块读取（`raw_call`、`get_storage_at`、`get_transaction_count` 的 `block` 参数）和批量余额 `get_balances`。所有样本的余额差都能归因到本笔交易，推断规则逐 wei 验证通过（见 5.5） |
 
@@ -23,6 +24,13 @@
 - M1 的 `chain_txs` 只存了方法选择器，没存完整调用数据；部分解码规则要读调用参数，已在迁移 0007 补上 `input_data`。
 - 带转账税的 token 会在转账过程中自己卖出税费：以太坊上表现为同一笔交易里路由解包两次，Base 上表现为 token 合约自己解包。V2 的原生币推断因此要按路由方法区分（见 5.5）。
 - Base 的 L1 存款交易很少（最近 40 个区块里只有系统交易），样本是从以太坊上 Base `OptimismPortal` 的 `TransactionDeposited` 事件反查出来的。
+- 步骤 3 对设计的调整：
+  - 资产流水的 `kind` 只表示资产类型（原生币、ERC20、ERC721、ERC1155、gas），来源由 `source` 表示（交易字段、日志、内部交易、推断、系统交易），两者正交；原先的 `internal`、`inferred_native` 取值合并进 `native` + `source`；
+  - 推断钩子不只推断原生币：WBNB/WETH 的 `Deposit` 不产生 `Transfer` 日志，钱包收到的包装币也要由 `wrapped_native` 家族推断；
+  - 别人发起的交易里也会出现钱包作为 owner 的 `Approval`（`transferFrom` 更新额度、代提交的 `permit`），授权事件带 `initiated_by_subject` 标明；
+  - 通用 ABI 解码只处理钱包交互范围内的日志（由交易 `to` 发出，或 topic 带钱包地址），不解聚合器路由内部的几百条池子日志；
+  - 只有事件签名时，indexed 位置按"前 N 个"猜测并做逐字节重编码校验，但 indexed 不在最前面时仍可能得到形式成立、含义错误的结果，所以这类结果标为 `signature_guess`，只作线索；
+  - 地址投毒样本里，真 USDT 的 0 数量 `transferFrom` 和仿冒 USDT 的"转出"记录出现在同一笔交易，风险判断按 token 逐条进行。
 
 ## 1. 目标与原则
 

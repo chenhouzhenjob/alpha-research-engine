@@ -132,5 +132,17 @@
     "nonce_before": 2,
     "nonce_after": 3,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x274868b02e11b091891f5492e2b787726bc7f442": {
+      "symbol": "CHONKETHA",
+      "name": "Chonketha the Wet Beaver",
+      "decimals": 8
+    },
+    "0x6207ba78c7a9ec32dea34160900f9122aaae9576": {
+      "symbol": "UNI-V2",
+      "name": "Uniswap V2",
+      "decimals": 18
+    }
   }
 }

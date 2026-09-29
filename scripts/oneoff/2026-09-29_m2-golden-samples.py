@@ -14,6 +14,7 @@
     cd research
     uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py select [--chains ethereum,base]
     uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py fetch [--refresh]
+    uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py metadata   # 补 token 元数据
 
 需要 `BNB_RPC_URLS` 里至少有一个可用的 Ankr 端点（Advanced API 和归档读取都用它）；同一个 key 用于 BSC、以太坊、Base。
 删除条件：第二阶段 `protocol-adapter-author` Skill 的样本采集流程实现后删除。期限：2026-12-31。
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from alpha_chains.erc20 import read_metadata_batch
 from alpha_chains.evm_common import EvmChainAdapter
 from alpha_chains.factory import build_evm_adapter, rpc_urls_env
 from alpha_core.metering import InMemoryCallMeter
@@ -741,16 +743,49 @@ def cmd_fetch(ankr: Ankr, *, refresh: bool) -> None:
         print(f"  {key.provider:10s} {key.method:28s} {key.status.value:12s} n={total.call_count}")
 
 
+def _token_emitters(doc: dict) -> set[str]:
+    """样本里和主体钱包有关的转账、授权日志的发出合约，即需要元数据的 token。"""
+    wallet_topic = "0x" + "0" * 24 + doc["subject_wallet"][2:]
+    wanted = {TRANSFER, topic("Approval(address,address,uint256)"), topic("ApprovalForAll(address,address,bool)")}
+    wanted |= {topic("TransferSingle(address,address,address,uint256,uint256)")}
+    wanted |= {topic("TransferBatch(address,address,address,uint256[],uint256[])")}
+    return {
+        lg["address"]
+        for lg in doc["receipt"]["logs"]
+        if lg["topics"] and lg["topics"][0] in wanted and wallet_topic in lg["topics"][1:]
+    }
+
+
+def cmd_metadata(ankr: Ankr) -> None:
+    """给样本补 token 元数据（symbol、name、decimals），供风险标记和解码测试使用。
+
+    元数据按最新区块读取：token 的 symbol/name 基本不变，风险标记也是按当前名称判断。
+    """
+    meter = InMemoryCallMeter(app="oneoff", job_ref="m2-golden-metadata")
+    for path in sorted(GOLDEN_DIR.glob("*/*/*.json")):
+        doc = json.loads(path.read_text())
+        chain = doc["chain"]
+        os.environ[rpc_urls_env(Chain(chain))] = ankr.for_chain(chain).rpc_url
+        adapter = build_evm_adapter(Chain(chain), meter=meter)
+        tokens = sorted(_token_emitters(doc))
+        meta = read_metadata_batch(adapter, tokens) if tokens else {}
+        doc["tokens"] = {a: {"symbol": m.symbol, "name": m.name, "decimals": m.decimals} for a, m in meta.items()}
+        path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n")
+        print(f"  ✓ {path.relative_to(GOLDEN_DIR)}：{len(tokens)} 个 token")
+
+
 def main() -> None:
     load_dotenv(".env")
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["select", "fetch"])
+    parser.add_argument("command", choices=["select", "fetch", "metadata"])
     parser.add_argument("--refresh", action="store_true", help="fetch 时覆盖已存在的样本文件（样本格式升级时用）")
     parser.add_argument("--chains", default="bsc,ethereum,base", help="select 时重挑哪些链，逗号分隔")
     args = parser.parse_args()
     ankr = Ankr()
     if args.command == "select":
         cmd_select(ankr, [c.strip() for c in args.chains.split(",") if c.strip()])
+    elif args.command == "metadata":
+        cmd_metadata(ankr)
     else:
         cmd_fetch(ankr, refresh=args.refresh)
 

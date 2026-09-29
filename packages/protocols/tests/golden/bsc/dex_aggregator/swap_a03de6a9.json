@@ -206,5 +206,17 @@
     "nonce_before": 27,
     "nonce_after": 28,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x4aae823a6a0b376de6a78e74ecc5b079d38cbcf7": {
+      "symbol": "SolvBTC",
+      "name": "Solv BTC",
+      "decimals": 18
+    },
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    }
   }
 }

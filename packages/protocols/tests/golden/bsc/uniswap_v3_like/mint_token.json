@@ -113,5 +113,22 @@
     "nonce_before": 1457,
     "nonce_after": 1458,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364": {
+      "symbol": "PCS-V3-POS",
+      "name": "Pancake V3 Positions NFT-V1",
+      "decimals": null
+    },
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xaf44a1e76f56ee12adbb7ba8acd3cbd474888122": {
+      "symbol": "DUSD",
+      "name": "StandX DUSD",
+      "decimals": 6
+    }
   }
 }

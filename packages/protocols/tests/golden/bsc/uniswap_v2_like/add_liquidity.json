@@ -133,5 +133,22 @@
     "nonce_before": 552,
     "nonce_after": 553,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xb87115abd36649401032cdb6116bcbd32bc47777": {
+      "symbol": "OURA",
+      "name": "Oura",
+      "decimals": 18
+    },
+    "0xfda86d5f6f4a69612f77c57499dc95de4846fa09": {
+      "symbol": "Cake-LP",
+      "name": "Pancake LPs",
+      "decimals": 18
+    }
   }
 }

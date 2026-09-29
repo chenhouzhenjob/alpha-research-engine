@@ -39,5 +39,6 @@
     "nonce_before": 48,
     "nonce_after": 49,
     "balance_delta_attributable": true
-  }
+  },
+  "tokens": {}
 }

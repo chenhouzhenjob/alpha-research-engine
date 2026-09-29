@@ -101,5 +101,17 @@
     "nonce_before": 50,
     "nonce_after": 51,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x07696dcab55e62cfef953666b29fe1970518cb00": {
+      "symbol": "WPRL",
+      "name": "Wrapped Pearl",
+      "decimals": 8
+    },
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 6
+    }
   }
 }

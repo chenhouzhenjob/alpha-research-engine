@@ -112,5 +112,17 @@
     "nonce_before": 40,
     "nonce_after": 41,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x514910771af9ca656af840dff83e8264ecf986ca": {
+      "symbol": "LINK",
+      "name": "ChainLink Token",
+      "decimals": 18
+    },
+    "0xc36442b4a4522e871399cd717abdd847ab11fe88": {
+      "symbol": "UNI-V3-POS",
+      "name": "Uniswap V3 Positions NFT-V1",
+      "decimals": null
+    }
   }
 }

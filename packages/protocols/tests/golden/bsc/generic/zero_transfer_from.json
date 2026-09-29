@@ -232,5 +232,12 @@
     "nonce_before": 2,
     "nonce_after": 2,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x2170ed0880ac9a755fd29b2688956bd959f933f8": {
+      "symbol": "ETH",
+      "name": "Ethereum Token",
+      "decimals": 18
+    }
   }
 }

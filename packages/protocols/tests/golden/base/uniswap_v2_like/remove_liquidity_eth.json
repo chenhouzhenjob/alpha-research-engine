@@ -145,5 +145,17 @@
     "nonce_before": 5,
     "nonce_after": 6,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x472edfbb126441101ff9544d98d3b4fb49995a36": {
+      "symbol": "ANTHROPIC",
+      "name": "ANTHROPIC",
+      "decimals": 18
+    },
+    "0xebcc85cf8e4ef162365951d8c2694c527682ec70": {
+      "symbol": "UNI-V2",
+      "name": "Uniswap V2",
+      "decimals": 18
+    }
   }
 }

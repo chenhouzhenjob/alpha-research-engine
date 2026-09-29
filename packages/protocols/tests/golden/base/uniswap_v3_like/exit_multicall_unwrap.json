@@ -135,5 +135,12 @@
     "nonce_before": 191078,
     "nonce_after": 191079,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x4ed4e862860bed51a9570b96d89af5e1b0efefed": {
+      "symbol": "DEGEN",
+      "name": "Degen",
+      "decimals": 18
+    }
   }
 }

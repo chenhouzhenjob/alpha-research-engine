@@ -400,5 +400,17 @@
     "nonce_before": 19,
     "nonce_after": 19,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xf4f18f83a9d41251a3c7e42d56d5a61b071f4b94": {
+      "symbol": "U5DT",
+      "name": "U5DT",
+      "decimals": 18
+    }
   }
 }

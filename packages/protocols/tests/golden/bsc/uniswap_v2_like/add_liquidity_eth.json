@@ -212,5 +212,17 @@
     "nonce_before": 337,
     "nonce_after": 338,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x14d66e72a6d1215c110cc12056c4aac766e07777": {
+      "symbol": "股票人生",
+      "name": "股票人生建设群:515091787",
+      "decimals": 18
+    },
+    "0x5c48eab71dbfd97b06c83c764d4083b71745dcbb": {
+      "symbol": "Cake-LP",
+      "name": "Pancake LPs",
+      "decimals": 18
+    }
   }
 }

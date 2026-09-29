@@ -87,5 +87,12 @@
     "nonce_before": 577,
     "nonce_after": 578,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63": {
+      "symbol": "XVS",
+      "name": "Venus",
+      "decimals": 18
+    }
   }
 }

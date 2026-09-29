@@ -276,5 +276,17 @@
     "nonce_before": 1426,
     "nonce_after": 1427,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0x8e1e6bf7e13c400269987b65ab2b5724b016caef": {
+      "symbol": "MITO",
+      "name": "MITO",
+      "decimals": 18
+    }
   }
 }

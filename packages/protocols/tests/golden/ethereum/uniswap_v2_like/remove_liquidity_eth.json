@@ -169,5 +169,17 @@
     "nonce_before": 1942,
     "nonce_after": 1943,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x08368cfb1b69f5821ec0e8340bee726568f8d662": {
+      "symbol": "UNI-V2",
+      "name": "Uniswap V2",
+      "decimals": 18
+    },
+    "0x12a77658112cf42914cb614d13653ed5852da1e5": {
+      "symbol": "AWF",
+      "name": "Animal Welfare Fund",
+      "decimals": 9
+    }
   }
 }

@@ -39040,5 +39040,12 @@
     "nonce_before": 0,
     "nonce_after": 0,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x8f6b925ebcc45c8346bd5dabe34250899cf1ee06": {
+      "symbol": "Airdrop at [3000usdc.us]",
+      "name": "Airdrop at 3000usdc.us 🎁",
+      "decimals": null
+    }
   }
 }

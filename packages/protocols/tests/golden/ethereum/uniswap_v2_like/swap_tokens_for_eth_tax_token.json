@@ -224,5 +224,12 @@
     "nonce_before": 1742,
     "nonce_after": 1743,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x12a77658112cf42914cb614d13653ed5852da1e5": {
+      "symbol": "AWF",
+      "name": "Animal Welfare Fund",
+      "decimals": 9
+    }
   }
 }

@@ -144,5 +144,17 @@
     "nonce_before": 5,
     "nonce_after": 6,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x3a14994573b291d3d2911725d83dde7410e4b088": {
+      "symbol": "UNI-V2",
+      "name": "Uniswap V2",
+      "decimals": 18
+    },
+    "0xdbbeaa5a358f204c7cf19bf118ca8d07945a72e8": {
+      "symbol": "TC",
+      "name": "titcoin",
+      "decimals": 18
+    }
   }
 }

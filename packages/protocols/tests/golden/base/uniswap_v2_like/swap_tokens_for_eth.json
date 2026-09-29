@@ -97,5 +97,12 @@
     "nonce_before": 6,
     "nonce_after": 7,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x472edfbb126441101ff9544d98d3b4fb49995a36": {
+      "symbol": "ANTHROPIC",
+      "name": "ANTHROPIC",
+      "decimals": 18
+    }
   }
 }

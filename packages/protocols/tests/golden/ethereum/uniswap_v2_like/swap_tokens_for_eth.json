@@ -97,5 +97,12 @@
     "nonce_before": 215,
     "nonce_after": 216,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xcdf7028ceab81fa0c6971208e83fa7872994bee5": {
+      "symbol": "T",
+      "name": "Threshold Network Token",
+      "decimals": 18
+    }
   }
 }

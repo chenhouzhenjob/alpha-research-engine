@@ -929,5 +929,22 @@
     "nonce_before": 17,
     "nonce_after": 18,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x40d9ad5fdbe46040ba1c705eddd1e704790aaaaa": {
+      "symbol": "屎壳郎",
+      "name": "屎壳郎",
+      "decimals": 18
+    },
+    "0x8c70fb517ae84d4d1ac494d076c2931ecd648da5": {
+      "symbol": "ETHBack_Dividend_Tracker",
+      "name": "ETHBack_Dividen_Tracker",
+      "decimals": 18
+    },
+    "0xdb9d28f8c1ce561359db2f10766520bf9a10788a": {
+      "symbol": "Cake-LP",
+      "name": "Pancake LPs",
+      "decimals": 18
+    }
   }
 }

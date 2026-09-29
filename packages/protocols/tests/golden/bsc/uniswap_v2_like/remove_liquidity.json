@@ -122,5 +122,22 @@
     "nonce_before": 60,
     "nonce_after": 61,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x13c22c943a1579bc227901be42ad90078e2d8599": {
+      "symbol": "Cake-LP",
+      "name": "Pancake LPs",
+      "decimals": 18
+    },
+    "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": {
+      "symbol": "WBNB",
+      "name": "Wrapped BNB",
+      "decimals": 18
+    },
+    "0xea84d4bb67ef9c915e2cd34f5a82803bbdb88888": {
+      "symbol": "DPG",
+      "name": "DPG",
+      "decimals": 18
+    }
   }
 }

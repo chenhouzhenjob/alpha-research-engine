@@ -96,5 +96,12 @@
     "nonce_before": 5811,
     "nonce_after": 5812,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    }
   }
 }

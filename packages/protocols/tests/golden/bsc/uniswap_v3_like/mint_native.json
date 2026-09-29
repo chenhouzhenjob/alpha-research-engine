@@ -124,5 +124,17 @@
     "nonce_before": 440,
     "nonce_after": 441,
     "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364": {
+      "symbol": "PCS-V3-POS",
+      "name": "Pancake V3 Positions NFT-V1",
+      "decimals": null
+    },
+    "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1": {
+      "symbol": "SPCXB",
+      "name": "SpaceX",
+      "decimals": 18
+    }
   }
 }

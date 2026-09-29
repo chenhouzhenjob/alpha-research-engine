@@ -16,28 +16,30 @@ from typing import Any
 
 # 原生币（BNB、ETH……）在 `asset` 字段里的取值。各链原生币的符号和精度在链画像里。
 NATIVE = "native"
+# gas 流水的收款方：gas 付给出块者，但解码不关心具体是谁，用这个占位值。
+GAS_SINK = "gas"
+# 系统交易凭空铸造原生币时流水的付款方占位值（例如 OP Stack 存款交易的 mint）。
+SYSTEM_SOURCE = "system"
 
 
 class AssetFlowKind(StrEnum):
-    """资产流水的类型。"""
+    """资产流水的资产类型。数据从哪来由 `FlowSource` 表示，两者正交。"""
 
-    NATIVE = "native"  # 交易本身携带的原生币（tx.value）
-    INTERNAL = "internal"  # 数据源给出的内部调用原生币转移
-    INFERRED_NATIVE = "inferred_native"  # 家族依据自己的事件确定性推断出的原生币转移（规划 5.5）
-    SYSTEM_MINT = "system_mint"  # 链的系统交易凭空铸造的原生币（OP Stack 存款交易的 mint），由链画像的系统交易规则产生
-    ERC20 = "erc20"  # 可替代 token 转账
-    ERC721 = "erc721"  # 不可替代 token（NFT）转账，数量恒为 1
-    ERC1155 = "erc1155"  # 半同质化 token 转账
-    GAS = "gas"  # 交易发起人支付的 gas 费（含 L2 的 L1 数据费）
+    NATIVE = "native"  # 原生币：交易 value、内部调用转移、系统交易铸币、推断出的原生币都是这一类
+    ERC20 = "erc20"  # 可替代 token
+    ERC721 = "erc721"  # 不可替代 token（NFT），数量恒为 1
+    ERC1155 = "erc1155"  # 半同质化 token
+    GAS = "gas"  # 交易发起人支付的 gas 费（含 L2 的 L1 数据费），资产为原生币
 
 
 class FlowSource(StrEnum):
     """资产流水来自哪里。"""
 
-    TX = "tx"  # 交易字段（value、gas、系统交易的 mint）
-    LOG = "log"  # 回执日志
-    INTERNAL = "internal"  # 数据源给出的内部交易
-    INFERRED = "inferred"  # 推断钩子
+    TX = "tx"  # 交易字段：value、gas
+    LOG = "log"  # 回执日志：转账事件
+    INTERNAL = "internal"  # 数据源给出的内部调用转移
+    INFERRED = "inferred"  # 家族依据自己的事件确定性推断（规划 5.5），例如 WBNB 解包转给钱包的原生币
+    SYSTEM = "system"  # 链的系统交易，例如 OP Stack 存款交易凭空铸造的 ETH（由链画像启用的规则产生）
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,35 @@ class AssetFlow:
     def __post_init__(self) -> None:
         if self.amount_raw < 0:
             raise ValueError(f"资产流水数量不能为负：{self.amount_raw}")
+
+
+@dataclass(frozen=True)
+class InternalTransfer:
+    """数据源给出的一笔内部调用原生币转移（地址索引源的 internal 类别）。"""
+
+    from_address: str
+    to_address: str
+    amount_raw: int  # wei，>0
+
+
+class RiskFlag(StrEnum):
+    """token 的风险标记，取值与 `tokens.risk_flag` 一致。"""
+
+    NORMAL = "normal"  # 正常
+    SPAM = "spam"  # 垃圾空投：名称里带网址、诱导领取等
+    IMPERSONATOR = "impersonator"  # 仿冒基础资产（symbol 与 USDT 等相同或形近，但地址不同）
+    HACKED = "hacked"  # 被攻击或增发失控的 token，只由人工标记
+
+
+@dataclass(frozen=True)
+class TokenMeta:
+    """解码用到的 token 元数据，来自 `tokens` 表或链上读取。"""
+
+    address: str
+    symbol: str | None = None
+    name: str | None = None
+    decimals: int | None = None
+    risk_flag: RiskFlag | None = None  # 已有标记（例如人工标记的 hacked）；None 表示由 `risk` 按规则计算
 
 
 class Direction(StrEnum):
@@ -185,8 +216,8 @@ class WarningCode(StrEnum):
     """解码告警。告警不影响已产出事件的正确性，但说明结果可能不完整。"""
 
     INTERNAL_UNAVAILABLE = "internal_unavailable"  # 数据源没给内部交易，而这笔交易很可能有原生币内部转移
-    ABI_MISSING = "abi_missing"  # 未知合约的日志找不到 ABI，只能保留资产流动
-    UNKNOWN_CONTRACT = "unknown_contract"  # 发出日志的合约没有识别结果
+    ABI_MISSING = "abi_missing"  # 未知合约的日志找不到能对上的 ABI，只能保留资产流动
+    MALFORMED_LOG = "malformed_log"  # 签名是转账或授权，但格式不符合标准，无法解析（资产流动可能不完整）
 
 
 @dataclass(frozen=True)
