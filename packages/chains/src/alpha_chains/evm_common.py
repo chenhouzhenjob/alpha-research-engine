@@ -536,6 +536,7 @@ def _parse_receipt(raw: dict[str, Any]) -> TxReceipt:
         effective_gas_price=_hex_to_int(raw.get("effectiveGasPrice")),
         contract_address=_lower(raw.get("contractAddress")),
         logs=[_parse_log(log) for log in raw.get("logs", [])],
+        l1_fee=_hex_to_int(raw.get("l1Fee")),
     )
 
 
@@ -550,4 +551,6 @@ def _parse_tx(raw: dict[str, Any]) -> TxInfo:
         input=(raw.get("input") or "0x").lower(),
         nonce=int(raw["nonce"], 16),
         gas_price=_hex_to_int(raw.get("gasPrice")),
+        tx_type=_hex_to_int(raw.get("type")),
+        mint=_hex_to_int(raw.get("mint")),
     )

@@ -1,7 +1,10 @@
 """BSC（BNB Chain）链适配器。
 
-RPC 端点复用 alpha-lp 同款环境变量 `BNB_RPC_URLS`（逗号分隔，第一个为主，其余为兜底），
-避免运维为同一条链的 RPC 访问维护两套密钥。
+HTTP 适配器由通用的 `factory.build_evm_adapter` 按 `CHAIN_SPECS[Chain.BSC]` 构造。RPC 端点复用
+alpha-lp 同款环境变量 `BNB_RPC_URLS`（逗号分隔，第一个为主，其余为兜底），避免运维为同一条链的
+RPC 访问维护两套密钥。BSC 单次 eth_getLogs 的默认跨度 45000 也登记在链规格里：alpha-lp 生产
+RPC 实测上限是 50000 个区块（报错 "exceed maximum block range: 50000"），换了 RPC 提供商导致
+不适用时用 `BNB_LOG_CHUNK_SIZE` 覆盖。
 """
 
 from __future__ import annotations
@@ -12,62 +15,23 @@ from alpha_core.metering import CallMeter
 from alpha_core.ports import BlockTimeStore
 from alpha_core.types import Chain
 
-from .evm_common import DEFAULT_BATCH_SIZE, EvmChainAdapter
+from .evm_common import EvmChainAdapter
 from .evm_websocket import EvmWebSocketSubscriber
-from .rate_limit import CuTokenBucket
+from .factory import build_evm_adapter
 
-BSC_CHAIN_ID = 56
-RPC_URLS_ENV = "BNB_RPC_URLS"
-LOG_CHUNK_SIZE_ENV = "BNB_LOG_CHUNK_SIZE"
 WSS_URL_ENV = "BNB_WSS_URL"
-# 可选：每秒最多消耗的 CU（NodeReal 免费版上限 300，建议留余量配 250）；不配置则不限速。
-MAX_CUPS_ENV = "BNB_RPC_MAX_CUPS"
-# 可选：一次 JSON-RPC 批量请求的最大调用数；不配置默认 50。
-BATCH_SIZE_ENV = "BNB_RPC_BATCH_SIZE"
-
-# 实测 alpha-lp 生产 BNB_RPC_URLS 配置的 RPC 单次 eth_getLogs 最多接受 50000 个区块
-# （报错信息为 "exceed maximum block range: 50000"）。取略低于上限的保守值作为 BSC 专用默认值，
-# 比 EvmChainAdapter 通用默认的 2000 大 20 倍，能显著减少全量历史回填所需的调用次数。
-# 如果换了 RPC 提供商导致这个值不适用，用 BNB_LOG_CHUNK_SIZE 环境变量覆盖，不用改代码。
-DEFAULT_BSC_LOG_CHUNK_SIZE = 45_000
-
-
-def _optional_number(env: str) -> float | None:
-    raw = os.environ.get(env, "").strip()
-    return float(raw) if raw else None
 
 
 def build_bsc_adapter(
     *, meter: CallMeter | None = None, block_time_store: BlockTimeStore | None = None
 ) -> EvmChainAdapter:
-    """从环境变量构造 BSC 适配器。
+    """从环境变量构造 BSC 适配器，等同于 `build_evm_adapter(Chain.BSC, ...)`。
 
     @param meter 外部调用计量器；不传则不记账（lp-backtest/live-signal 现有调用方不传，行为不变）
     @param block_time_store 区块时间持久化缓存；不传则只缓存在进程内存
     @raises ValueError `BNB_RPC_URLS` 未配置
     """
-    raw = os.environ.get(RPC_URLS_ENV, "")
-    rpc_urls = [url.strip() for url in raw.split(",") if url.strip()]
-    if not rpc_urls:
-        raise ValueError(f"环境变量 {RPC_URLS_ENV} 未配置，无法构造 BSC 链适配器")
-
-    chunk_size_raw = os.environ.get(LOG_CHUNK_SIZE_ENV, "")
-    if chunk_size_raw.strip():
-        log_chunk_size = int(chunk_size_raw)
-    else:
-        log_chunk_size = DEFAULT_BSC_LOG_CHUNK_SIZE
-
-    batch_size = _optional_number(BATCH_SIZE_ENV)
-    return EvmChainAdapter(
-        chain=Chain.BSC,
-        rpc_urls=rpc_urls,
-        is_poa=True,
-        log_chunk_size=log_chunk_size,
-        meter=meter,
-        rate_limiter=CuTokenBucket(_optional_number(MAX_CUPS_ENV)),
-        block_time_store=block_time_store,
-        batch_size=int(batch_size) if batch_size else DEFAULT_BATCH_SIZE,
-    )
+    return build_evm_adapter(Chain.BSC, meter=meter, block_time_store=block_time_store)
 
 
 def build_bsc_wss_subscriber() -> EvmWebSocketSubscriber:

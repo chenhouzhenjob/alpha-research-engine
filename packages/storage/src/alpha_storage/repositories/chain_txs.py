@@ -28,6 +28,9 @@ class TxRecord:
     status: int | None = None  # 1 成功 / 0 失败 / None 未知
     gas_used: int | None = None
     effective_gas_price: int | None = None
+    input_data: str | None = None  # 完整调用数据；只有选择器时不填
+    tx_type: int | None = None  # EIP-2718 交易类型
+    mint_raw: int | None = None  # OP Stack 存款交易铸造的原生币（wei）
 
 
 class ChainTxRepository:
@@ -51,13 +54,26 @@ class ChainTxRepository:
                 "status": t.status,
                 "gas_used": t.gas_used,
                 "effective_gas_price": None if t.effective_gas_price is None else Decimal(t.effective_gas_price),
+                "input_data": t.input_data.lower() if t.input_data else None,
+                "tx_type": t.tx_type,
+                "mint_raw": None if t.mint_raw is None else Decimal(t.mint_raw),
                 "source": source,
             }
             for t in {t.tx_hash.lower(): t for t in txs}.values()
         ]
         stmt = insert(ChainTxRow).values(rows)
         ex = stmt.excluded
-        fill = ("tx_index", "to_address", "method_selector", "status", "gas_used", "effective_gas_price")
+        fill = (
+            "tx_index",
+            "to_address",
+            "method_selector",
+            "status",
+            "gas_used",
+            "effective_gas_price",
+            "input_data",
+            "tx_type",
+            "mint_raw",
+        )
         stmt = stmt.on_conflict_do_update(
             index_elements=["chain", "tx_hash"],
             set_={c: func.coalesce(getattr(ChainTxRow, c), getattr(ex, c)) for c in fill},
@@ -95,6 +111,7 @@ class ChainTxRepository:
                     effective_gas_price=None if r.effective_gas_price is None else Decimal(r.effective_gas_price),
                     contract_address=r.contract_address,
                     tx_index=r.tx_index,
+                    l1_fee=None if r.l1_fee is None else Decimal(r.l1_fee),
                     receipt_fetched=True,
                 )
             )

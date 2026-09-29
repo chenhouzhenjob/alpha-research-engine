@@ -256,6 +256,10 @@ class ChainTxRow(Base):
     gas_used: Mapped[int | None] = mapped_column(BigInteger)
     effective_gas_price: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # wei
     contract_address: Mapped[str | None] = mapped_column(String(42))  # 创建合约的交易所创建的地址
+    input_data: Mapped[str | None] = mapped_column(Text)  # 完整调用数据（0x 开头）；解码需要调用参数时用，未知为 NULL
+    tx_type: Mapped[int | None] = mapped_column(SmallInteger)  # EIP-2718 交易类型；未知为 NULL
+    mint_raw: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # OP Stack 存款交易铸造的原生币（wei）
+    l1_fee: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # OP Stack 等 L2 的 L1 数据费（wei）
     receipt_fetched: Mapped[bool] = mapped_column(Boolean, server_default=false())  # 回执和日志是否已入库
     source: Mapped[str] = mapped_column(String(16))  # indexer/rpc：这条记录最初从哪来
     first_seen_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())

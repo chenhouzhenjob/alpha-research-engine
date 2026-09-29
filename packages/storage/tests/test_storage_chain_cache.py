@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -17,6 +18,7 @@ from alpha_core.ports import (
     PricePoint,
 )
 from alpha_core.types import Chain
+from alpha_storage.models import ChainTxRow
 from alpha_storage.repositories.block_times import BlockTimeRepository
 from alpha_storage.repositories.caches import AbiCacheRepository, ChainStateCacheRepository, PricePointRepository
 from alpha_storage.repositories.chain_txs import ChainTxRepository, TxRecord
@@ -96,6 +98,35 @@ def test_indexer_tx_then_receipt_fills_fields_and_logs(session):
     assert [lg.log_index for lg in logs] == [5, 6]
     assert logs[0].topics == ["0x" + "dd" * 32, "0x" + "01" * 32]
     assert logs[1].topics == []
+
+
+def test_l2_fields_and_input_round_trip(session):
+    """input_data / tx_type / mint_raw 来自索引源或交易本身，l1_fee 来自回执，都能写入并互相补齐。"""
+    repo = ChainTxRepository(session)
+    repo.upsert_txs(
+        Chain.BASE,
+        [TxRecord(tx_hash=TX, block_number=100, from_address="0x" + "01" * 20, to_address=TOKEN)],
+        source="indexer",
+    )
+    repo.upsert_txs(
+        Chain.BASE,
+        [
+            TxRecord(
+                tx_hash=TX,
+                block_number=100,
+                from_address="0x" + "01" * 20,
+                to_address=TOKEN,
+                input_data="0xA9059CBB00",
+                tx_type=0x7E,
+                mint_raw=10**18,
+            )
+        ],
+        source="rpc",
+    )
+    repo.save_receipts(Chain.BASE, [replace(_receipt(), l1_fee=123)])
+    row = session.get(ChainTxRow, ("base", TX))
+    got = (row.input_data, row.tx_type, row.mint_raw, row.l1_fee)
+    assert got == ("0xa9059cbb00", 126, Decimal(10**18), Decimal(123))
 
 
 def test_abi_cache_overwrites_expired_negative_entry(session):

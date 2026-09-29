@@ -304,3 +304,30 @@ def test_get_balances_batches_and_reports_failures():
     assert result.ok == {"0xaaa": 10**18}
     assert "missing trie node" in result.failed["0xbad"]
     assert _totals(meter)[("publicnode", "eth_getBalance", CallStatus.OK)].call_count == 1
+
+
+BASE_FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "base_op_stack_sample.json").read_text())
+
+
+def test_op_stack_fields_are_parsed_and_absent_elsewhere():
+    """Base 真实录制：普通交易回执带 l1Fee，存款交易（类型 0x7e）带 mint；BSC 样本这些字段为 None。"""
+    adapter, _ = _adapter([PUBLIC])
+    by_hash = {
+        BASE_FIXTURE["tx"]["hash"]: (BASE_FIXTURE["tx"], BASE_FIXTURE["receipt"]),
+        BASE_FIXTURE["deposit_tx"]["hash"]: (BASE_FIXTURE["deposit_tx"], BASE_FIXTURE["deposit_receipt"]),
+        FIXTURE["tx"]["hash"]: (FIXTURE["tx"], FIXTURE["receipt"]),
+    }
+
+    def handler(p):
+        tx, rc = by_hash[p["params"][0]]
+        return {"result": tx if p["method"] == "eth_getTransactionByHash" else rc}
+
+    adapter._endpoints[0].post = _responder(handler)
+    hashes = [h.lower() for h in by_hash]
+    txs = adapter.get_transactions(hashes).ok
+    receipts = adapter.get_transaction_receipts(hashes).ok
+    normal, deposit, bsc = hashes
+    assert receipts[normal].l1_fee == int(BASE_FIXTURE["receipt"]["l1Fee"], 16) > 0
+    assert (txs[deposit].tx_type, txs[deposit].mint) == (0x7E, int(BASE_FIXTURE["deposit_tx"]["mint"], 16))
+    assert txs[normal].tx_type == 2 and txs[normal].mint is None
+    assert receipts[bsc].l1_fee is None and txs[bsc].mint is None

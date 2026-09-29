@@ -39,6 +39,8 @@ class TxReceipt:
     effective_gas_price: int | None  # wei；部分节点对老交易不返回，为 None
     contract_address: str | None  # 创建合约的交易所创建的地址；其他交易为 None
     logs: list[RawLog]
+    # OP Stack 等 L2 回执里的 L1 数据费（wei），钱包实际支付的 gas 要加上它；其他链为 None
+    l1_fee: int | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,10 @@ class TxInfo:
     input: str  # 完整调用数据，0x 开头；普通转账为 "0x"
     nonce: int
     gas_price: int | None  # wei
+    tx_type: int | None = None  # EIP-2718 交易类型：0 legacy、2 EIP-1559、0x7e OP Stack 存款交易……；未知时为 None
+    # OP Stack 存款交易（类型 0x7e）在 L2 上凭空铸造给 `from` 的原生币数量（wei），不产生日志；
+    # 其他交易为 None
+    mint: int | None = None
 
     @property
     def method_selector(self) -> str | None:

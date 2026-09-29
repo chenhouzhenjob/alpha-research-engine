@@ -90,7 +90,9 @@ alpha-lp 那张表只存"已确认关联仓位/钱包"的池子；这张表存"F
 
 | 值 | 含义 |
 |---|---|
-| `bsc` | BNB Chain，chainId 56，本期唯一支持的链 |
+| `bsc` | BNB Chain，chainId 56；`pool_candidates` 等 lp-backtest 的表目前只有这条链 |
+| `ethereum` | 以太坊主网，chainId 1；钱包分析使用 |
+| `base` | Base（OP Stack L2），chainId 8453；钱包分析使用 |
 
 #### dex_id
 
@@ -310,6 +312,10 @@ symbol/name/standard 只在原值为 NULL 时补上（见 `TokenRepository.upser
 | gas_used | BIGINT | 是 | NULL | 实际消耗的 gas |
 | effective_gas_price | NUMERIC(78,0) | 是 | NULL | 实际 gas 单价（wei） |
 | contract_address | VARCHAR(42) | 是 | NULL | 创建合约的交易所创建的地址；其他交易为 NULL |
+| input_data | TEXT | 是 | NULL | 完整调用数据（0x 开头）；部分解码规则要读调用参数。只拿到方法选择器时为 NULL |
+| tx_type | SMALLINT | 是 | NULL | EIP-2718 交易类型：0 legacy / 1 EIP-2930 / 2 EIP-1559 / 126（0x7e）OP Stack 存款交易等；未知为 NULL |
+| mint_raw | NUMERIC(78,0) | 是 | NULL | OP Stack 存款交易在 L2 上铸造给 `from_address` 的原生币（wei），不产生日志；其他交易为 NULL |
+| l1_fee | NUMERIC(78,0) | 是 | NULL | OP Stack 等 L2 回执里的 L1 数据费（wei），实际 gas 成本 = gas_used × effective_gas_price + l1_fee；其他链为 NULL |
 | receipt_fetched | BOOLEAN | 否 | false | 回执和日志是否已入库；入库后不再重复拉取 |
 | source | VARCHAR(16) | 否 | 无 | 该行最初来源：`indexer`（地址索引源）/ `rpc` |
 | first_seen_at | TIMESTAMPTZ | 否 | `now()` | 首次写入时间 |
