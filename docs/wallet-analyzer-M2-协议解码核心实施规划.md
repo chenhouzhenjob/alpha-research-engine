@@ -7,7 +7,9 @@
 
 | 步骤 | 状态 | 说明 |
 |---|---|---|
-| 1 金标准样本 | ✅ 2026-09-29 | 42 个样本（通用 12、WBNB 2、V2 7、V3 6、Venus 13、聚合器 5），清单 `tests/golden/cases.json`，脚本 `scripts/oneoff/2026-09-29_m2-golden-samples.py`。为此给 `alpha_chains` 补了按区块读取（`raw_call`、`get_storage_at`、`get_transaction_count` 的 `block` 参数）和批量余额 `get_balances`。所有样本的余额差都能归因到本笔交易，推断规则逐 wei 验证通过（见 5.5） |
+| 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
+| 1c 以太坊、Base 样本 | ⏳ | — |
+| 1 金标准样本（BSC） | ✅ 2026-09-29 | 42 个样本（通用 12、WBNB 2、V2 7、V3 6、Venus 13、聚合器 5），清单 `tests/golden/cases.json`，脚本 `scripts/oneoff/2026-09-29_m2-golden-samples.py`。为此给 `alpha_chains` 补了按区块读取（`raw_call`、`get_storage_at`、`get_transaction_count` 的 `block` 参数）和批量余额 `get_balances`。所有样本的余额差都能归因到本笔交易，推断规则逐 wei 验证通过（见 5.5） |
 
 **实施中的新发现**：
 - 基准钱包的 V3 退出全部是 `decreaseLiquidity + collect`，没有 `unwrapWETH9`，也没有付 BNB 开仓；这两类样本改用公开交易。
@@ -15,6 +17,9 @@
 - vBNB 的存入几乎都经过 gateway `0x4d2e…5dca`，事件当事人是 gateway 而不是用户；家族要以资产流水判断视角（见 5.8）。
 - 地址投毒的仿冒 token 转账大多是"从钱包转出"方向。
 - Ankr `eth_getLogs` 的区块跨度上限与过滤的地址个数有关，5 个地址时 5 万区块会报错。
+- 同一个 Ankr key 可以访问以太坊和 Base，包括归档读取和 Advanced API；但 Ankr 把以太坊叫 `eth`，因此链画像要记录各供应商的链标识（`provider_slugs`）。
+- Base 的回执带 `l1Fee` 等 OP Stack 字段，gas 必须把它加进去；以太坊和 Base 上 Uniswap V2 的协议费开关 `feeTo` 都已打开。
+- M1 的 `chain_txs` 只存了方法选择器，没存完整调用数据；部分解码规则要读调用参数，已在迁移 0007 补上 `input_data`。
 
 ## 1. 目标与原则
 
@@ -28,7 +33,11 @@ M2 交付的是一个**能解析任意协议的解码框架**，加上一批首�
    - 新家族：只改 `families/<family>/`、在家族注册表里加一行、补测试样本；
    - 碰到 `decoding/`、`valuation/` 的框架代码，说明抽象有问题，要回头调整抽象，不能打补丁（设计文档 10.4）；
 3. **首批家族按"持仓形态"挑选**：每个家族至少验证一种其他家族验证不到的形态。钱包里常见哪些协议不是挑选依据；
-4. **不认识的协议也要留下可读的线索**：用 M1 的 ABI 来源解出事件名和参数，交给 M4 的 AI 识别，并作为人工复核的上下文。
+4. **不认识的协议也要留下可读的线索**：用 M1 的 ABI 来源解出事件名和参数，交给 M4 的 AI 识别，并作为人工复核的上下文；
+5. **多链同样按"加配置不改框架"扩展**：
+   - 新增一条 EVM 链：只加链画像 `chains/<chain>.yaml`、`alpha_core` 的链枚举和规格，以及各协议在该链上的部署配置和样本；
+   - 链与链之间的差异（gas 计费、CREATE2 算法、系统交易、原生币日志）由链画像声明，框架和家族代码里不出现链名和链上地址；
+   - M2 用 BSC、以太坊、Base 三条链验证（见 5.12）。
 
 **两类验收，互不替代**：
 
@@ -75,8 +84,9 @@ M2 交付的是一个**能解析任意协议的解码框架**，加上一批首�
   - `identification/`：第一层识别，按家族声明的方式发现合约；
   - 实例配置的加载和校验；
 - **首批家族**：`wrapped_native`、`uniswap_v2_like`、`uniswap_v3_like`、`compound_v2_like`、`dex_aggregator`；
-- **实例**：`pancakeswap-v2`、`pancakeswap-v3`、`venus-core`、`wbnb`、`aggregator-b300`，以及基础资产清单 `assets/bsc.yaml`；
-- **存储**：`contract_registry`（迁移 `0007`）和对应端口；
+- **链**：BSC、以太坊、Base 三份链画像（含基础资产清单）；`alpha_core` 增加 `ethereum`、`base` 两条链；`alpha_chains` 提供按链构造适配器的 `build_evm_adapter(chain)`；
+- **实例**：`pancakeswap-v2`、`pancakeswap-v3`、`uniswap-v2`、`uniswap-v3`、`venus-core`、`wrapped-native`、`aggregator-b300`。一个协议一份 YAML，各链的部署写在里面（见 5.10）；
+- **存储**：`contract_registry`（迁移 `0008`）和对应端口；
 - **样本与冒烟**：形态金标准样本、基准钱包全量解码冒烟、M0 的"抓取回执样本"一并完成；
 - **迁移**：现有 `pancakeswap_v3` 插件迁入 `families/uniswap_v3_like/`，原路径只做重新导出。
 
@@ -86,13 +96,16 @@ M2 交付的是一个**能解析任意协议的解码框架**，加上一批首�
 - 识别第二层（签名匹配 + 工厂校验）、字节码指纹、代理识别 → 第二阶段。M2 的 `ProtocolFamily` 接口先把"特征事件签名"字段留出来，第二层到时候直接用，不改接口；
 - 第四层 LLM 识别 → M4（依赖 MCP 工具）；
 - `protocol_instances` 表 → M4（仓库里的 YAML 是唯一真相，这张表只供 MCP 查询）；
-- 内部交易的真实数据接入 → 等 M0 NodeReal 实测和 M1 步骤 6b。
+- 内部交易的真实数据接入 → 等 M0 NodeReal 实测和 M1 步骤 6b；
+- 非 EVM 链（Solana、Tron 等）：不实现。M2 把"EVM 专用"和"与链无关"的代码分目录放（见 5.12），以后接入时新增一套通用解码和链适配器，事件分类表、家族/实例结构、估值接口和 M3 以后的逻辑都复用。
 
 **对设计文档 12.1 的调整**（批准后同步更新设计文档）：
 - 首批家族加入 `compound_v2_like` 和 `dex_aggregator`；
 - 通用 ABI 解码和 token 风险标记挪进 M2；
 - `protocol_instances` 表和 LLM 识别挪到 M4；
-- `contract_registry` 用 `instance_key` 关联实例，不用 `protocol_instance_id`。
+- `contract_registry` 用 `instance_key` 关联实例，不用 `protocol_instance_id`；
+- 实例配置从"一条链一份"改为"一个协议一份、内含各链部署"；新增链画像；
+- M2 的验证链从只有 BSC 扩到 BSC、以太坊、Base。
 
 ## 4. 现有模块的认知与上下游影响
 
@@ -168,7 +181,9 @@ graph LR
 **架构测试**（`tests/test_architecture.py`，扫描 import 做静态检查），把可扩展性约束变成自动化测试：
 - `decoding/`、`valuation/` 不能 import `families/`；
 - `families/<a>/` 不能 import `families/<b>/`；只能 import `decoding`、`valuation` 的公开接口和 `families/_shared/`；
-- `decoding/`、`valuation/`、各家族的 decoder 和 valuer 不能 import `alpha_storage`、`requests`、`web3`。
+- `decoding/`、`valuation/`、各家族的 decoder 和 valuer 不能 import `alpha_storage`、`requests`、`web3`；
+- `decoding/`、`valuation/`、`families/` 的源码里不能出现链名（`bsc`、`ethereum`、`base` 等）和 40 位十六进制地址字面量。链相关的值只能来自链画像和实例配置；
+- 与链无关的 `decoding/` 不能 import EVM 专用的 `decoding/evm/`（见 5.12）。
 
 ### 5.2 核心模型（`decoding/models.py`，frozen dataclass）
 
@@ -218,12 +233,13 @@ WBNB 的 `Deposit`/`Withdrawal` 不单独算一种流水。它交给 `wrapped_na
 
 | 字段 | 含义 |
 |---|---|
+| `chain` | 链，例如 `bsc`；同一个协议在不同链上的持仓是不同的持仓 |
 | `instance_key` | 实例键，例如 `venus-core` |
 | `kind` | 持仓形态，见 5.6 |
 | `id` | 形态内的标识：share 是凭证 token 地址，nft 是 tokenId，debt 是市场地址 |
 | `owner` | 持有人 |
 
-`position_key` 就是它的字符串形式 `<instance_key>:<kind>:<id>`，例如 `venus-core:debt:0xfd58…`、`pancakeswap-v3:nft:123456`。
+`position_key` 就是它的字符串形式 `<chain>:<instance_key>:<kind>:<id>`，例如 `bsc:venus-core:debt:0xfd58…`、`base:uniswap-v3:nft:123456`。带上链，M3 汇总跨链持仓时才不会撞键。
 
 ### 5.3 事件分类表（`decoding/taxonomy.py`，一次写全）
 
@@ -442,46 +458,97 @@ class ProtocolFamily(Protocol):
 
 风险标记只改变事件的子类型，不删除事件。标记结果由 M3 回写到 `tokens.risk_flag`。
 
-### 5.10 实例配置（`instances/<chain>/*.yaml`）
+### 5.10 链画像与实例配置
+
+**链画像**（`alpha_protocols/chains/<chain>.yaml`）：链与链之间的差异全部在这里声明。
 
 ```yaml
-# instances/bsc/venus-core.yaml
-instance_key: venus-core
-chain: bsc
-family: compound_v2_like
-protocol: Venus
-version: core-pool
-roles:
-  comptroller: ["0xfd36e2c2a6789db23113685031d7f16329158384"]
+# chains/base.yaml
+chain: base
+vm: evm
+native: {symbol: ETH, decimals: 18}
+wrapped_native: "0x4200000000000000000000000000000000000006"
+gas_model: op_stack          # standard：gas_used × effective_gas_price；op_stack：再加回执里的 l1Fee
+create2_variant: standard    # standard；zksync 等变体在接入对应链时实现
+system_tx_rules: [op_deposit] # 链特有的通用规则：OP Stack 的 L1 存款交易（类型 0x7e）凭空铸造 ETH、钱包不付 gas
+provider_slugs: {ankr: base}  # 各数据供应商对这条链的叫法（Ankr 把以太坊叫 eth）
+assets:                       # 基础资产清单：风险标记和 M3 定价用
+  - {asset_id: eth,  address: native}
+  - {asset_id: weth, address: "0x4200000000000000000000000000000000000006", symbol: WETH}
+  - {asset_id: usdc, address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", symbol: USDC}
+```
+
+- **`gas_model`** 和 **`create2_variant`** 是封闭枚举，每个取值对应框架里的一个纯函数。新增取值属于"接入一种新的链架构"，要改框架，但每种架构只改一次。Arbitrum 系（包括 alpha-lp 已支持的 Robinhood 链）的 L1 成本已经算在 `gasUsed` 里，用 `standard` 即可；
+- **`system_tx_rules`** 同理，每条规则是框架里的一个纯函数，由链画像按名字启用；
+- **`asset_id`** 跨链统一：各链的 USDC 地址不同，但 `asset_id` 都是 `usdc`。M3 汇总跨链持仓、以后配对跨链转账都靠它；
+- 链 id、RPC 环境变量名、是否 PoA 这些**适配器需要的**信息放在 `alpha_core` 的链规格里，不放在这里，因为 `alpha_chains` 不能依赖 `alpha_protocols`。
+
+**实例配置**（`alpha_protocols/instances/<protocol>.yaml`）：一个协议一份，各链的部署写在 `deployments` 里；共用的参数只写一次，某条链不同时在该链的部署里覆盖。
+
+```yaml
+# instances/uniswap-v2.yaml
+instance_key: uniswap-v2
+family: uniswap_v2_like
+protocol: Uniswap
+version: v2
 options:
-  native_market: "0xa07c5b74c9b40447a954e1466938b865b6bbea36"   # vBNB，底层资产为原生币
-  reward_token: "<XVS 地址，实施时核实>"
+  pair_init_code_hash: "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+  fee_numerator: 1           # _mintFee：协议费取 LP 手续费的 1/6，对应 rootK·5 + rootKLast
+  fee_denominator: 5
+deployments:
+  ethereum:
+    roles:
+      factory: ["0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"]
+      router:  ["0x7a250d5630b4cf539739df2c5dacb4c659f2488d"]
+  base:
+    roles:
+      factory: ["0x8909dc15e40173ff4699343b6eb8132c65e18ec6"]
+      router:  ["0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24"]
 ```
 
 ```yaml
-# instances/bsc/pancakeswap-v2.yaml
+# instances/pancakeswap-v2.yaml
 instance_key: pancakeswap-v2
-chain: bsc
 family: uniswap_v2_like
 protocol: PancakeSwap
 version: v2
-roles:
-  factory: ["0xca143ce32fe78f1f7019d7d551a6402fc5350c73"]
-  router:  ["<实施时核实>"]
 options:
   pair_init_code_hash: "0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5"
-  fee_numerator: 8          # _mintFee 常数，实施时对照源码核实
+  fee_numerator: 8           # Pancake 的 _mintFee 常数，实施时对照源码核实
   fee_denominator: 17
+deployments:
+  bsc:
+    roles:
+      factory: ["0xca143ce32fe78f1f7019d7d551a6402fc5350c73"]
+      router:  ["0x10ed43c718714eb63d5aa57b78b54704e256024e"]
 ```
 
-`pancakeswap-v3.yaml`、`wbnb.yaml`、`aggregator-b300.yaml` 的格式相同。V3 的 `pool_deployer` 和 `pool_init_code_hash` 已经核实（见第 4 节）。
+```yaml
+# instances/venus-core.yaml
+instance_key: venus-core
+family: compound_v2_like
+protocol: Venus
+version: core-pool
+deployments:
+  bsc:
+    roles:
+      comptroller: ["0xfd36e2c2a6789db23113685031d7f16329158384"]
+      native_gateway: ["0x4d2e4add7bbed906e949954516bb735cd51a5dca"]
+    options:
+      native_market: "0xa07c5b74c9b40447a954e1466938b865b6bbea36"   # vBNB，底层资产为原生币
+      reward_token: "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63"    # XVS，Comptroller.getXVSAddress() 已核实
+```
+
+- 两份 V2 配置的差别只在参数上（init code hash、协议费常数、地址），这就是"分叉只加 YAML"的实际样子；
+- `wrapped-native` 是一份实例，每条链一个部署，地址从链画像的 `wrapped_native` 取，不再重复写；
+- `uniswap-v3`、`pancakeswap-v3`、`aggregator-b300` 的格式相同。已核实的地址见第 4 节和 5.12。
 
 **加载时的校验**：
-- `family` 必须已注册；
+- `family` 必须已注册；每个部署的链必须有链画像；
 - 角色名必须属于家族声明的 `roles`；
-- `options` 用家族的 `options_model` 校验，未知字段报错；
-- 同一条链上 `instance_key` 唯一；
-- 同一个地址不能出现在两个实例里。
+- 合并共用参数和该链的覆盖参数之后，用家族的 `options_model` 校验，未知字段报错；
+- `instance_key` 全局唯一；
+- 同一条链上，同一个地址不能出现在两个部署里。
 
 ### 5.11 状态机
 
@@ -501,7 +568,36 @@ stateDiagram-v2
 
 解码本身无状态。跨交易的状态（挂起本金、负债利息）由 M3 处理。
 
-## 6. 表结构（迁移 `0007_contract_registry`，同步 `SCHEMA.md`）
+### 5.12 多链
+
+**分层**：
+
+| 层 | 目录 | 与链的关系 |
+|---|---|---|
+| 与链无关 | `decoding/models.py`、`taxonomy.py`、`consolidate.py`、`risk.py`；`valuation/` 的接口和调度；`families/base.py` 的接口 | 不认识任何链；地址、资产都当作不透明字符串 |
+| EVM 通用 | `decoding/evm/`：从回执提取资产流水、通用 ABI 解码、gas 模型、CREATE2 变体、系统交易规则 | 认识 EVM 的日志、topic、地址格式，但不认识具体某条链 |
+| 链配置 | `chains/<chain>.yaml` | 只有数据 |
+| 协议 | `families/<family>/`（EVM 协议家族）、`instances/*.yaml` | 家族只认识 EVM；具体链上的地址只在实例配置里 |
+
+以后接入非 EVM 链时，新增一个与 `decoding/evm/` 平行的目录，与链无关层不用改。
+
+**M2 的三条验证链**：
+
+| 链 | 验证什么 | 已核实的常量（2026-09-29） |
+|---|---|---|
+| BSC | 全部家族；基准钱包端到端 | 见第 4 节 |
+| 以太坊 | 同一个家族在另一条链、另一个分叉上成立：Uniswap V3 原版 Swap 事件（与 Pancake 变体不同）、Uniswap V2 的协议费常数（1/5，与 Pancake 的 8/17 不同）、WETH | V3 factory `0x1f98…f984`、NPM `0xc364…fe88`、init code hash `0xe34f…8b54`；V2 factory `0x5c69…aa6f`、router `0x7a25…488d`、init code hash `0x96e8…845f`；`feeTo` 已开启。CREATE2 计算的 WETH/USDC 池和交易对地址与链上一致 |
+| Base | L2 的 gas（`op_stack`：要加 L1 数据费）；L1 存款交易（类型 `0x7e`，凭空铸造 ETH，不产生日志、钱包不付 gas）；同一协议多链部署 | WETH `0x4200…0006`；V3 factory `0x3312…fdfd`、NPM `0x03a5…34f1`；V2 factory `0x8909…8ec6`、router `0x4752…ad24`；`feeTo` 已开启。CREATE2 同样验证通过 |
+
+**多链的验收标准**：以太坊和 Base 接入时，diff 只落在链画像、`alpha_core` 的链枚举和规格、实例配置的 `deployments`、样本上。如果碰到框架或家族代码，说明链差异没有被链画像吸收，先调整抽象。gas 模型 `op_stack` 和系统交易规则 `op_deposit` 是 Base 第一次带来的新架构，允许在 `decoding/evm/` 里新增一次。
+
+**`alpha_core` 和 `alpha_chains` 的配套改动**（M1 的范围，作为 M2 步骤 1b 单独提交）：
+- `Chain` 增加 `ETHEREUM = "ethereum"`、`BASE = "base"`，与 alpha-lp 的 `SupportedChain.key`（`bsc`、`base`）保持一致；
+- 新增链规格 `ChainSpec`：chain id、RPC 环境变量名（BSC 保持 `BNB_RPC_URLS`，与 alpha-lp 共用；以太坊 `ETH_RPC_URLS`、Base `BASE_RPC_URLS`）、是否 PoA、默认 getLogs 跨度；
+- `build_evm_adapter(chain)` 按规格构造适配器，`build_bsc_adapter()` 改为调用它，行为不变；
+- `TxReceipt` 增加 `l1_fee: int | None`（OP Stack 回执的 `l1Fee`，其他链为 None），`TxInfo` 增加 `tx_type: int | None` 和 `mint: int | None`（OP Stack 存款交易铸造的 ETH），供 gas 模型和系统交易规则使用。
+
+## 6. 表结构（迁移 `0008_contract_registry`，同步 `SCHEMA.md`）
 
 **`contract_registry`**：合约识别结果。每个地址一行，永久缓存。
 
@@ -542,6 +638,18 @@ stateDiagram-v2
 | `compound_v2_like` | 存入 / 取出（vUSDT、vBNB 各一）、借款 / 还款（vBNB 借款要验证推断钩子）、替别人还款、清算（借款人视角和清算人视角）、领 XVS | 链上公开交易，从各市场的事件日志里挑 |
 | `dex_aggregator` | 四种选择器各一笔、换成 BNB（缺口告警） | 基准钱包 |
 
+**以太坊和 Base 的样本**（链上公开交易）：
+
+| 链 | 家族 | 用例 |
+|---|---|---|
+| 以太坊 | `wrapped_native` | WETH 包装、解包 |
+| 以太坊 | `uniswap_v3_like` | mint、multicall 退出含 `unwrapWETH9`、单独 collect |
+| 以太坊 | `uniswap_v2_like` | 添加流动性、`removeLiquidityETH`、token 换 ETH |
+| 以太坊 | 通用 | USDT 转账（USDT 在以太坊上是不返回 bool 的非标准 ERC20，但日志格式标准） |
+| Base | 通用 | 普通转账（验证 `op_stack` gas：余额差必须等于 value + gas + l1Fee）；L1 存款交易 |
+| Base | `wrapped_native` | WETH 包装、解包 |
+| Base | `uniswap_v3_like`、`uniswap_v2_like` | mint、退出、交换各一笔（同一实例的多链部署） |
+
 公开交易的挑选脚本写在 `scripts/oneoff/` 里：按事件签名在最近的区块区间用 `eth_getLogs` 找候选交易，按规则取第一笔，脚本可以复现。
 
 ### 7.2 估值校验（冒烟脚本，对照链上真值）
@@ -568,16 +676,18 @@ stateDiagram-v2
 
 - `cd research && uv run pytest packages/protocols packages/storage apps/lp-backtest apps/live-signal`；
 - `ruff check`；
-- 迁移 0007 往返：`alembic upgrade head` → `downgrade -1` → `upgrade head`。
+- 迁移 0008 往返：`alembic upgrade head` → `downgrade -1` → `upgrade head`。
 
 ## 8. 实施步骤（每一步是一个可以单独评审的改动）
 
 | # | 内容 | 验证 |
 |---|---|---|
 | 1 | 样本抓取脚本（基准钱包样本 + 按事件挑选的公开交易样本），生成 `tests/golden/` | 可以复现，不含 key |
+| 1b | 多链配套：`alpha_core` 的 `Chain` 加以太坊和 Base、`ChainSpec`；`build_evm_adapter(chain)`；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint` | BSC 现有测试不变；新字段的解析测试 |
+| 1c | 以太坊和 Base 的样本（5.12、7.1） | 余额差逐笔核对，Base 的 gas 必须计入 l1Fee 才能对上 |
 | 2 | `decoding/models.py`、`taxonomy.py`、`test_architecture.py` | 分类表合法组合测试；架构测试 |
 | 3 | 通用解码 + 兜底（含通用 ABI 解码）+ `risk.py` | 通用样本逐条断言 |
-| 4 | 实例配置的 schema 和加载器（加 `pyyaml`）、`families/base.py`、家族注册表、`assets/bsc.yaml` | 各种配置错误都能报出来 |
+| 4 | 链画像和实例配置的 schema 与加载器（加 `pyyaml`）、`families/base.py`、家族注册表、三条链的链画像 | 各种配置错误都能报出来 |
 | 5 | 分派、认领、整合原语、推断钩子 + `wrapped_native` | 认领冲突测试；WBNB 样本 |
 | 6 | 旧插件迁入 `families/uniswap_v3_like/pool.py`，原路径重新导出 | 现有 4 个测试不改、全部通过；lp-backtest、live-signal 测试通过 |
 | 7 | `uniswap_v3_like` 解码 | V3 样本 |
@@ -585,13 +695,15 @@ stateDiagram-v2
 | 9 | `uniswap_v2_like`：解码 + 估值 | V2 样本；`Burn` 对照 |
 | 10 | `compound_v2_like`：解码 + 发现 + 估值 | Venus 样本；估值对照 |
 | 11 | `dex_aggregator` | 聚合器样本 |
-| 12 | 识别第一层 runner + `ContractRegistryStore` + 迁移 0007 + 仓储 + `SCHEMA.md` | 往返迁移；4 种发现方式各一个测试 |
+| 12 | 识别第一层 runner + `ContractRegistryStore` + 迁移 0008 + 仓储 + `SCHEMA.md` | 往返迁移；4 种发现方式各一个测试 |
 | 13 | 端到端冒烟，结果写进本文档的实施进度 | 7.3 |
 | 14 | 更新设计文档（12.1 的调整、3.3 的分类表、10.4 的架构测试） | — |
 
 **可扩展性检查点**：步骤 7 之后的每个家族（步骤 9、10、11），评审时都要看 diff 是否只落在 `families/<family>/`、实例 YAML、家族注册表的一行和测试样本里。如果改动碰到了框架，先单独提交一个"调整抽象"的改动，说明原抽象漏了什么，再继续做家族。
 
 步骤 1 与步骤 2~4 可以并行；步骤 6 独立，可以随时插入。
+
+**多链检查点**：步骤 1c 以后，以太坊和 Base 的样本与 BSC 的样本走同一套测试。任何只为某条链写的分支，都要能在链画像里找到对应的声明。
 
 ## 9. 风险与应对
 
