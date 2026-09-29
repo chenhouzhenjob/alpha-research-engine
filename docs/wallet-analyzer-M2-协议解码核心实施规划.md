@@ -9,6 +9,7 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
+| 2 模型、分类表、架构测试 | ✅ 2026-09-29 | `decoding/models.py`、`decoding/taxonomy.py`（28 个组合，每个都声明允许的方向和是否必须认领流水）、`tests/test_architecture.py`（依赖方向、纯度、不写死链和地址，含检查器自检） |
 | 1 金标准样本（BSC） | ✅ 2026-09-29 | 42 个样本（通用 12、WBNB 2、V2 7、V3 6、Venus 13、聚合器 5），清单 `tests/golden/cases.json`，脚本 `scripts/oneoff/2026-09-29_m2-golden-samples.py`。为此给 `alpha_chains` 补了按区块读取（`raw_call`、`get_storage_at`、`get_transaction_count` 的 `block` 参数）和批量余额 `get_balances`。所有样本的余额差都能归因到本笔交易，推断规则逐 wei 验证通过（见 5.5） |
 
 **实施中的新发现**：
@@ -209,6 +210,7 @@ graph LR
 | `native` | 交易本身的 value |
 | `internal` | 数据源给出的内部原生币转移 |
 | `inferred_native` | 家族依据自己的事件确定性推断出的原生币转移，见 5.5 |
+| `system_mint` | 链的系统交易凭空铸造的原生币（OP Stack 存款交易的 `mint`），由链画像启用的系统交易规则产生 |
 | `erc20` / `erc721` / `erc1155` | 对应标准的转账日志 |
 | `gas` | gas 费 |
 
@@ -224,6 +226,7 @@ WBNB 的 `Deposit`/`Withdrawal` 不单独算一种流水。它交给 `wrapped_na
 | `coverage_tier` | `T0`~`T3` | 覆盖等级 |
 | `confidence` | `exact` / `inferred` | 是否依赖推断 |
 | `decoder_version` | str | 格式为 `<family>@<整数版本>`；兜底部分为 `generic@1` |
+| `instance_key` | str \| None | 协议实例键，即设计文档标准事件表里的 `protocol`；与 `contract_registry.instance_key` 同名 |
 
 **`DecodedTx`**：
 - `tx_hash`、`subject_wallet`、`status`、`events`；

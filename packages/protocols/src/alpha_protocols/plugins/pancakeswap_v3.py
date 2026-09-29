@@ -89,9 +89,7 @@ class PancakeswapV3Plugin(FactoryDiscoveryPlugin):
     def decode_pool_created(self, log: LogEntry) -> PoolCandidate:
         # topics: [topic0, token0, token1, fee]；data: (int24 tickSpacing, address pool)
         _topic0, token0_topic, token1_topic, fee_topic = log.topics
-        tick_spacing, pool_address = abi_decode(
-            ["int24", "address"], bytes.fromhex(log.data.removeprefix("0x"))
-        )
+        tick_spacing, pool_address = abi_decode(["int24", "address"], bytes.fromhex(log.data.removeprefix("0x")))
         return PoolCandidate(
             chain=self.chain,
             dex_id=self.dex_id,
@@ -145,9 +143,7 @@ class PancakeswapV3Plugin(FactoryDiscoveryPlugin):
             block_time=block_time,
         )
 
-    def find_pool_by_tokens(
-        self, adapter: ChainAdapter, token_a: str, token_b: str, fee: int
-    ) -> PoolCandidate | None:
+    def find_pool_by_tokens(self, adapter: ChainAdapter, token_a: str, token_b: str, fee: int) -> PoolCandidate | None:
         """直接调用 `Factory.getPool` 查询指定 token 对 + 费率的池子地址，不扫描历史事件。
 
         只能回答"这个具体 token 对现在有没有池子"，不能像 `decode_pool_created` 那样发现

@@ -43,9 +43,7 @@ def discover_pools(
         to_block=to_block,
     )
     candidates = [plugin.decode_pool_created(log) for log in logs]
-    logger.info(
-        "工厂发现：%s [%d, %d] 扫到 %d 个新池子", plugin.dex_id, from_block, to_block, len(candidates)
-    )
+    logger.info("工厂发现：%s [%d, %d] 扫到 %d 个新池子", plugin.dex_id, from_block, to_block, len(candidates))
     return candidates
 
 

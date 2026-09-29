@@ -83,9 +83,7 @@ class _FakeAdapterSlot0PriceAndTick:
 
 def test_read_slot0_price_and_tick_decodes_real_btc_usdt_swap():
     plugin = PancakeswapV3Plugin()
-    price, tick = plugin.read_slot0_price_and_tick(
-        _FakeAdapterSlot0PriceAndTick(), POOL, decimals0=18, decimals1=18
-    )
+    price, tick = plugin.read_slot0_price_and_tick(_FakeAdapterSlot0PriceAndTick(), POOL, decimals0=18, decimals1=18)
     assert tick == -110528
     assert 50_000 < 1 / price < 80_000
 
