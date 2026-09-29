@@ -8,7 +8,7 @@
 | 步骤 | 状态 | 说明 |
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
-| 1c 以太坊、Base 样本 | ⏳ | — |
+| 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
 | 1 金标准样本（BSC） | ✅ 2026-09-29 | 42 个样本（通用 12、WBNB 2、V2 7、V3 6、Venus 13、聚合器 5），清单 `tests/golden/cases.json`，脚本 `scripts/oneoff/2026-09-29_m2-golden-samples.py`。为此给 `alpha_chains` 补了按区块读取（`raw_call`、`get_storage_at`、`get_transaction_count` 的 `block` 参数）和批量余额 `get_balances`。所有样本的余额差都能归因到本笔交易，推断规则逐 wei 验证通过（见 5.5） |
 
 **实施中的新发现**：
@@ -20,6 +20,8 @@
 - 同一个 Ankr key 可以访问以太坊和 Base，包括归档读取和 Advanced API；但 Ankr 把以太坊叫 `eth`，因此链画像要记录各供应商的链标识（`provider_slugs`）。
 - Base 的回执带 `l1Fee` 等 OP Stack 字段，gas 必须把它加进去；以太坊和 Base 上 Uniswap V2 的协议费开关 `feeTo` 都已打开。
 - M1 的 `chain_txs` 只存了方法选择器，没存完整调用数据；部分解码规则要读调用参数，已在迁移 0007 补上 `input_data`。
+- 带转账税的 token 会在转账过程中自己卖出税费：以太坊上表现为同一笔交易里路由解包两次，Base 上表现为 token 合约自己解包。V2 的原生币推断因此要按路由方法区分（见 5.5）。
+- Base 的 L1 存款交易很少（最近 40 个区块里只有系统交易），样本是从以太坊上 Base `OptimismPortal` 的 `TransactionDeposited` 事件反查出来的。
 
 ## 1. 目标与原则
 
@@ -311,11 +313,11 @@ WBNB 的 `Deposit`/`Withdrawal` 不单独算一种流水。它交给 `wrapped_na
 | `wrapped_native` | 钱包直接调用 WBNB 解包 | `Withdrawal(src=钱包, wad)`：WBNB 合约把 `wad` 数量的原生币转给调用者 |
 | `uniswap_v3_like` | NPM multicall 里有 `unwrapWETH9(min, recipient)` | 由 NPM 发出的 `Withdrawal` 金额合计，全部转给 `recipient` |
 | `uniswap_v3_like`、`uniswap_v2_like` | 付 BNB 时退回多余部分（NPM `refundETH`；V2 路由 `addLiquidityETH`、`swapETHForExactTokens`） | 合约只把实际用到的 BNB 包装成 WBNB，所以退款 = 交易 value − 该合约的 WBNB `Deposit` 金额 |
-| `uniswap_v2_like` | 路由的 `*ForETH`、`removeLiquidityETH*` | 路由的 `Withdrawal` 金额全部转给调用参数里的 `to` |
+| `uniswap_v2_like` | 路由的 `*ForETH`、`removeLiquidityETH*` | 只看 `src` 等于路由的 `Withdrawal`，金额转给调用参数里的 `to`。**带转账税的 token** 会在转账过程中自己通过路由卖出税费，同一笔交易里路由解包不止一次：`swap*ForETH` 取"钱包转出 token 之后的第一次"路由解包；`removeLiquidityETH*` 取最后一次（先解除流动性，再把 token 转给用户时可能触发卖税，最后才 `withdraw`）。这条规则依赖调用结构，有数据源时以数据源为准 |
 | `compound_v2_like` | vBNB 的 `Redeem`、`Borrow` | 事件里的 `redeemAmount`、`borrowAmount` 就是转给钱包的原生币数量 |
 | `dex_aggregator` | 路由内部走向不透明 | **不推断**，记告警 `internal_unavailable`。样本 `swap_810c705b` 里聚合器解包了 0.003118 WBNB，钱包却没有收到任何 BNB，证明"解包量 = 钱包收到量"不成立 |
 
-**实测验证**（2026-09-29，金标准样本的区块前后余额差）：以上每条可推断规则都有样本，推断值与余额差逐 wei 相等（V3 `exit_multicall_unwrap`、`mint_native`，V2 `remove_liquidity_eth`、`swap_tokens_for_eth`，WBNB `unwrap`，Venus `redeem_vbnb`、`borrow_vbnb`）。
+**实测验证**（2026-09-29，金标准样本的区块前后余额差，三条链共 62 个样本）：以上每条可推断规则都有样本，推断值与余额差逐 wei 相等：V3 `exit_multicall_unwrap`（BSC、以太坊、Base）、`mint_native`；V2 `remove_liquidity_eth`、`swap_tokens_for_eth`、`add_liquidity_eth`（退回 1 wei）、以太坊带转账税 token 的 `swap_tokens_for_eth_tax_token`（路由解包 0.2105 和 0.2011 两次，钱包收到后者）；WBNB/WETH `unwrap`；Venus `redeem_vbnb`、`borrow_vbnb`。Base 的 `op_stack` gas（含 `l1Fee`）和 L1 存款交易的 `mint` 也逐 wei 相等。
 
 **规则**：
 - 内部交易列表不为空（数据源可用）时，推断钩子一律不生效，以数据源为准，避免重复计算；

@@ -12,10 +12,10 @@
 
 执行：
     cd research
-    uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py select
-    uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py fetch
+    uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py select [--chains ethereum,base]
+    uv run python scripts/oneoff/2026-09-29_m2-golden-samples.py fetch [--refresh]
 
-需要 `BNB_RPC_URLS` 里至少有一个可用的 Ankr 端点（Advanced API 和归档读取都用它）。
+需要 `BNB_RPC_URLS` 里至少有一个可用的 Ankr 端点（Advanced API 和归档读取都用它）；同一个 key 用于 BSC、以太坊、Base。
 删除条件：第二阶段 `protocol-adapter-author` Skill 的样本采集流程实现后删除。期限：2026-12-31。
 不被任何应用、定时任务或默认测试路径 import。
 """
@@ -31,15 +31,17 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from alpha_chains.bsc import build_bsc_adapter
 from alpha_chains.evm_common import EvmChainAdapter
+from alpha_chains.factory import build_evm_adapter, rpc_urls_env
 from alpha_core.metering import InMemoryCallMeter
+from alpha_core.types import Chain
 from dotenv import load_dotenv
 from eth_utils import keccak
 
 GOLDEN_DIR = Path("packages/protocols/tests/golden")
 MANIFEST = GOLDEN_DIR / "cases.json"
-SCHEMA_VERSION = 1
+# 2：tx/receipt 增加 tx_type、mint、l1_fee（多链，见规划 5.12）
+SCHEMA_VERSION = 2
 
 WALLET = "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be"  # 基准钱包
 NPM = "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364"  # PancakeSwap V3 NonfungiblePositionManager
@@ -61,6 +63,21 @@ VENUS_LIQUIDATION_MARKETS = [
 ]
 
 AGGREGATOR_SELECTORS = ["0xe5e8894b", "0x810c705b", "0xa03de6a9", "0xdad12b6c"]
+
+# 以太坊、Base 的公开样本用到的合约（2026-09-29 已用 CREATE2 和 factory()/WETH9() 核实，见规划 5.12）
+ETH_CONTRACTS = {
+    "weth": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "usdt": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "v3_npm": "0xc36442b4a4522e871399cd717abdd847ab11fe88",
+    "v2_router": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+}
+BASE_CONTRACTS = {
+    "weth": "0x4200000000000000000000000000000000000006",
+    "v3_npm": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+    "v2_router": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+}
+# Base 在以太坊 L1 上的 OptimismPortal：用户存款在 L1 发出 TransactionDeposited，L2 上生成类型 0x7e 的交易
+BASE_PORTAL_ON_L1 = "0x49048044d57e1c92a77f79988d21fa8faf74e97e"
 
 
 def topic(signature: str) -> str:
@@ -85,17 +102,32 @@ VENUS_LIQUIDATE = topic("LiquidateBorrow(address,address,uint256,address,uint256
 # ----------------------------------------------------------------------
 
 
-class Ankr:
-    """从 `BNB_RPC_URLS` 里找一个可用的 Ankr key，同时提供 Advanced API 和普通 JSON-RPC。"""
+# Ankr 对各链的叫法（以太坊叫 eth）。正式的映射在链画像的 provider_slugs 里（M2 步骤 4）。
+ANKR_SLUGS = {"bsc": "bsc", "ethereum": "eth", "base": "base"}
 
-    def __init__(self) -> None:
-        keys = re.findall(r"rpc\.ankr\.com/bsc/([A-Za-z0-9]+)", os.environ.get("BNB_RPC_URLS", ""))
-        for key in keys:
-            self.multichain = f"https://rpc.ankr.com/multichain/{key}"
-            self.rpc_url = f"https://rpc.ankr.com/bsc/{key}"
-            if self._post(self.rpc_url, "eth_blockNumber", [], allow_error=True) is not None:
+
+class Ankr:
+    """从 `BNB_RPC_URLS` 里找一个可用的 Ankr key，同时提供 Advanced API 和普通 JSON-RPC。
+
+    同一个 key 可以访问 Ankr 支持的所有链；`for_chain` 返回指向另一条链的视图。
+    """
+
+    def __init__(self, key: str | None = None, chain: str = "bsc") -> None:
+        self.chain = chain
+        slug = ANKR_SLUGS[chain]
+        candidates = (
+            [key] if key else re.findall(r"rpc\.ankr\.com/bsc/([A-Za-z0-9]+)", os.environ.get("BNB_RPC_URLS", ""))
+        )
+        for k in candidates:
+            self.key = k
+            self.multichain = f"https://rpc.ankr.com/multichain/{k}"
+            self.rpc_url = f"https://rpc.ankr.com/{slug}/{k}"
+            if key or self._post(self.rpc_url, "eth_blockNumber", [], allow_error=True) is not None:
                 return
         raise SystemExit("BNB_RPC_URLS 里没有可用的 Ankr 端点")
+
+    def for_chain(self, chain: str) -> Ankr:
+        return Ankr(self.key, chain)
 
     @staticmethod
     def _post(url: str, method: str, params: Any, *, allow_error: bool = False) -> Any:
@@ -120,7 +152,7 @@ class Ankr:
         token = None
         for _ in range(max_pages):
             params = {
-                "blockchain": "bsc",
+                "blockchain": ANKR_SLUGS[self.chain],
                 "address": address,
                 "pageSize": 10000 if not desc else 1000,
                 "descOrder": desc,
@@ -183,23 +215,24 @@ class Picker:
     def __init__(self) -> None:
         self.cases: list[dict] = []
         self.missing: list[str] = []
+        self.chain = "bsc"  # 当前在挑哪条链的样本，由各 select_* 函数设置
 
     def add(self, family: str, case: str, tx_hash: str | None, subject: str | None, note: str) -> None:
         if not tx_hash or not subject:
-            self.missing.append(f"{family}/{case}")
-            print(f"  ✗ {family}/{case}：没有找到符合条件的交易")
+            self.missing.append(f"{self.chain}/{family}/{case}")
+            print(f"  ✗ {self.chain}/{family}/{case}：没有找到符合条件的交易")
             return
         self.cases.append(
             {
                 "family": family,
                 "case": case,
-                "chain": "bsc",
+                "chain": self.chain,
                 "tx_hash": tx_hash.lower(),
                 "subject_wallet": subject.lower(),
                 "note": note,
             }
         )
-        print(f"  ✓ {family}/{case} {tx_hash}")
+        print(f"  ✓ {self.chain}/{family}/{case} {tx_hash}")
 
 
 # 挑样本用的简化同形字符表；正式规则在 decoding/risk.py（步骤 3）。
@@ -494,16 +527,156 @@ def select_venus(ankr: Ankr, p: Picker) -> None:
     p.add("compound_v2_like", "claim_xvs", t and t["hash"], t and t["from"], "从 Comptroller 领取 XVS")
 
 
-def cmd_select(ankr: Ankr) -> None:
-    p = Picker()
+def _sole_tx_in_block(ankr: Ankr, t: dict) -> bool:
+    """发起人在该区块里只发了这一笔交易（nonce 差为 1），样本的余额差才能完整归因到它。"""
+    block = int(t["blockNumber"], 16)
+    count = lambda b: int(ankr.rpc("eth_getTransactionCount", [t["from"], hex(b)]), 16)  # noqa: E731
+    return count(block) - count(block - 1) == 1
+
+
+def _pick_common_evm(ankr: Ankr, p: Picker, c: dict[str, str]) -> None:
+    """以太坊、Base 共用的挑选规则：同一套家族在另一条链、另一个部署上的样本。
+
+    这两条链的样本都要求发起人在该区块里只有这一笔交易，保证余额差可以归因。
+    """
+    ok = lambda t: t["status"] == "0x1" and _sole_tx_in_block(ankr, t)  # noqa: E731
+    weth = _by_selector(ankr, c["weth"])
+    t = _first(weth, lambda t: _sel(t) in ("0xd0e30db0", "0x") and int(t["value"], 16) > 0 and ok(t))
+    p.add("wrapped_native", "wrap", t and t["hash"], t and t["from"], "直接调用 WETH.deposit 或直接转 ETH")
+    t = _first(weth, lambda t: _sel(t) == "0x2e1a7d4d" and ok(t))
+    p.add("wrapped_native", "unwrap", t and t["hash"], t and t["from"], "直接调用 WETH.withdraw")
+
+    npm = ankr.history("ankr_getTransactionsByAddress", "transactions", c["v3_npm"], desc=True, max_pages=3)
+    t = _first(npm, lambda t: "88316456" in t["input"] and ok(t))
+    p.add("uniswap_v3_like", "mint", t and t["hash"], t and t["from"], "Uniswap V3 开仓（mint 或含 mint 的 multicall）")
+    t = _first(
+        npm,
+        lambda t: (
+            t["input"].startswith("0xac9650d8")
+            and all(x in t["input"] for x in ("0c49ccbe", "fc6f7865", "49404b7c"))
+            and ok(t)
+        ),
+    )
+    p.add("uniswap_v3_like", "exit_multicall_unwrap", t and t["hash"], t and t["from"], "退出含 unwrapWETH9")
+    t = _first(npm, lambda t: _sel(t) == "0xfc6f7865" and ok(t))
+    p.add("uniswap_v3_like", "collect_only", t and t["hash"], t and t["from"], "单独 collect")
+
+    router = ankr.history("ankr_getTransactionsByAddress", "transactions", c["v2_router"], desc=True, max_pages=3)
+    for case, sels, note in [
+        ("add_liquidity", ["0xe8e33700", "0xf305d719"], "Uniswap V2 添加流动性"),
+        ("remove_liquidity_eth", ["0x02751cec", "0xaf2979eb"], "removeLiquidityETH：收到 ETH"),
+        ("swap_tokens_for_eth", ["0x18cbafe5", "0x791ac947"], "token 换 ETH"),
+    ]:
+        t = _first(router, lambda t, sels=sels: _sel(t) in sels and ok(t))
+        p.add("uniswap_v2_like", case, t and t["hash"], t and t["from"], note)
+
+
+def select_ethereum(ankr: Ankr, p: Picker) -> None:
+    print("以太坊 …")
+    p.chain = "ethereum"
+    eth = ankr.for_chain("ethereum")
+    usdt = _by_selector(eth, ETH_CONTRACTS["usdt"])
+    t = _first(usdt, lambda t: _sel(t) == "0xa9059cbb" and _sole_tx_in_block(eth, t))
+    p.add("generic", "erc20_out", t and t["hash"], t and t["from"], "以太坊 USDT.transfer（非标准 ERC20：不返回 bool）")
+    _pick_common_evm(eth, p, ETH_CONTRACTS)
+
+    # 带转账税的 token：token 在转账过程中自己通过路由卖出税费，同一笔交易里路由会解包两次 WETH，
+    # 只有"钱包转出 token 之后的第一次"属于钱包（规划 5.5）。挑一笔回执里路由解包 ≥2 次的作为回归样本。
+    withdrawal = topic("Withdrawal(address,uint256)")
+    router = ETH_CONTRACTS["v2_router"]
+    txs = eth.history("ankr_getTransactionsByAddress", "transactions", router, desc=True, max_pages=3)
+    found = None
+    for t in [t for t in txs if t["status"] == "0x1" and _sel(t) == "0x791ac947"][:80]:
+        logs = eth.rpc("eth_getTransactionReceipt", [t["hash"]])["logs"]
+        hits = [lg for lg in logs if lg["topics"][0] == withdrawal and _addr_word(int(lg["topics"][1], 16)) == router]
+        if len(hits) >= 2 and _sole_tx_in_block(eth, t):
+            found = t
+            break
+    p.add(
+        "uniswap_v2_like",
+        "swap_tokens_for_eth_tax_token",
+        found and found["hash"],
+        found and found["from"],
+        "带转账税的 token 换 ETH：路由解包两次，只有钱包转出 token 之后的第一次属于钱包",
+    )
+
+
+def select_base(ankr: Ankr, p: Picker) -> None:
+    print("Base …")
+    p.chain = "base"
+    base = ankr.for_chain("base")
+    weth = _by_selector(base, BASE_CONTRACTS["weth"])
+    # 普通转账要验证 op_stack gas（余额差 = value + gas + l1Fee）；用 WETH 的 withdraw 发起人作为 EOA 候选，
+    # 从其历史里找一笔发出的纯 ETH 转账。
+    found = None
+    for t in weth[:30]:
+        hist = base.history("ankr_getTransactionsByAddress", "transactions", t["from"], desc=True)
+        found = _first(
+            hist,
+            lambda x, who=t["from"]: (
+                x["status"] == "0x1"
+                and x["from"].lower() == who.lower()
+                and x["input"] == "0x"
+                and int(x["value"], 16) > 0
+            ),
+        )
+        if found:
+            break
+    p.add(
+        "generic", "native_out", found and found["hash"], found and found["from"], "Base 纯 ETH 转出：gas 必须加 l1Fee"
+    )
+
+    # L1 存款：在以太坊上找 Base OptimismPortal 的 TransactionDeposited，挑"自己存给自己、不带 calldata"
+    # 的 ETH 存款，再到 Base 上该地址的历史里找对应的 0x7e 交易。
+    eth = ankr.for_chain("ethereum")
+    deposited = topic("TransactionDeposited(address,address,uint256,bytes)")
+    dep = None
+    for lg in eth.logs(BASE_PORTAL_ON_L1, deposited, 5_000):
+        frm, to = _addr_word(int(lg["topics"][1], 16)), _addr_word(int(lg["topics"][2], 16))
+        raw = bytes.fromhex(lg["data"][2:])
+        opaque = raw[64 : 64 + int.from_bytes(raw[32:64], "big")]
+        mint, calldata = int.from_bytes(opaque[:32], "big"), opaque[73:]
+        if frm == to and mint > 0 and not calldata:
+            hist = base.history("ankr_getTransactionsByAddress", "transactions", to, desc=True)
+            # Ankr 返回的交易不一定带 mint 字段；自存 ETH 时 value 等于 mint，用任一字段匹配
+            dep = _first(
+                hist,
+                lambda x: x.get("type") == "0x7e" and mint in (int(x.get("mint", "0x0"), 16), int(x["value"], 16)),
+            )
+            if dep:
+                break
+    p.add(
+        "generic",
+        "l1_deposit",
+        dep and dep["hash"],
+        dep and dep["to"],
+        "OP Stack 存款交易：凭空铸造 ETH，无日志，不付 gas",
+    )
+    _pick_common_evm(base, p, BASE_CONTRACTS)
+
+
+def _select_bsc(ankr: Ankr, p: Picker) -> None:
     select_benchmark(ankr, p)
     select_wrapped_native(ankr, p)
     select_v2(ankr, p)
     select_v3_public(ankr, p)
     select_venus(ankr, p)
+
+
+SELECTORS = {"bsc": _select_bsc, "ethereum": select_ethereum, "base": select_base}
+
+
+def cmd_select(ankr: Ankr, chains: list[str]) -> None:
+    """只重挑 `chains` 里的链；清单里其他链的样本原样保留，已提交的挑选结果不被改动。"""
+    p = Picker()
+    for chain in chains:
+        SELECTORS[chain](ankr, p)
+    kept = []
+    if MANIFEST.exists():
+        kept = [c for c in json.loads(MANIFEST.read_text())["cases"] if c["chain"] not in chains]
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST.write_text(
-        json.dumps({"schema_version": SCHEMA_VERSION, "cases": p.cases}, ensure_ascii=False, indent=2) + "\n"
+        json.dumps({"schema_version": SCHEMA_VERSION, "cases": kept + p.cases}, ensure_ascii=False, indent=2) + "\n"
     )
     print(f"\n写出 {MANIFEST}：{len(p.cases)} 个样本；缺失 {len(p.missing)} 个：{p.missing}")
 
@@ -513,18 +686,26 @@ def cmd_select(ankr: Ankr) -> None:
 # ----------------------------------------------------------------------
 
 
-def cmd_fetch(adapter: EvmChainAdapter, meter: InMemoryCallMeter) -> None:
+def cmd_fetch(ankr: Ankr, *, refresh: bool) -> None:
     manifest = json.loads(MANIFEST.read_text())
+    meter = InMemoryCallMeter(app="oneoff", job_ref="m2-golden")
+    adapters: dict[str, EvmChainAdapter] = {}
     written = 0
     for case in manifest["cases"]:
         out = GOLDEN_DIR / case["chain"] / case["family"] / f"{case['case']}.json"
-        if out.exists():
+        if out.exists() and not refresh:
             continue
+        chain = case["chain"]
+        if chain not in adapters:
+            # 走正式的链适配器（记账、故障转移），只用可用的 Ankr 端点，避开已停用的 key。
+            os.environ[rpc_urls_env(Chain(chain))] = ankr.for_chain(chain).rpc_url
+            adapters[chain] = build_evm_adapter(Chain(chain), meter=meter)
+        adapter = adapters[chain]
         h, subject = case["tx_hash"], case["subject_wallet"]
         tx = adapter.get_transactions([h])
         rc = adapter.get_transaction_receipts([h])
         if h not in tx.ok or h not in rc.ok:
-            print(f"  ✗ {case['family']}/{case['case']}：{tx.failed or rc.failed}")
+            print(f"  ✗ {chain}/{case['family']}/{case['case']}：{tx.failed or rc.failed}")
             continue
         receipt = rc.ok[h]
         block = receipt.block_number
@@ -564,15 +745,14 @@ def main() -> None:
     load_dotenv(".env")
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["select", "fetch"])
+    parser.add_argument("--refresh", action="store_true", help="fetch 时覆盖已存在的样本文件（样本格式升级时用）")
+    parser.add_argument("--chains", default="bsc,ethereum,base", help="select 时重挑哪些链，逗号分隔")
     args = parser.parse_args()
     ankr = Ankr()
     if args.command == "select":
-        cmd_select(ankr)
+        cmd_select(ankr, [c.strip() for c in args.chains.split(",") if c.strip()])
     else:
-        # 抓取走正式的链适配器（记账、故障转移），只用上面挑出的可用 Ankr 端点，避开已停用的 key。
-        os.environ["BNB_RPC_URLS"] = ankr.rpc_url
-        meter = InMemoryCallMeter(app="oneoff", job_ref="m2-golden")
-        cmd_fetch(build_bsc_adapter(meter=meter), meter)
+        cmd_fetch(ankr, refresh=args.refresh)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "generic",
   "case": "approve",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0x095ea7b3000000000000000000000000de70456a4d47f43b3166f2ab3b883e2ab7bed3fdffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "nonce": 2,
-    "gas_price": 1000000000
+    "gas_price": 1000000000,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97",
@@ -40,7 +42,8 @@
         "block_number": 38186457,
         "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2024-04-26T03:14:22+00:00",
   "subject_state": {

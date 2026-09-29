@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "family": "generic",
+  "case": "l1_deposit",
+  "chain": "base",
+  "tx_hash": "0x1f8875e370f525bc502d614a480f907d4b0478d1187510fbe0dcaa37828876f9",
+  "subject_wallet": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+  "note": "OP Stack 存款交易：凭空铸造 ETH，无日志，不付 gas",
+  "tx": {
+    "tx_hash": "0x1f8875e370f525bc502d614a480f907d4b0478d1187510fbe0dcaa37828876f9",
+    "block_number": 51905676,
+    "tx_index": 1,
+    "from_address": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+    "to_address": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+    "value": 400000000000000,
+    "input": "0x",
+    "nonce": 0,
+    "gas_price": 0,
+    "tx_type": 126,
+    "mint": 400000000000000
+  },
+  "receipt": {
+    "tx_hash": "0x1f8875e370f525bc502d614a480f907d4b0478d1187510fbe0dcaa37828876f9",
+    "block_number": 51905676,
+    "tx_index": 1,
+    "from_address": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+    "to_address": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+    "status": 1,
+    "gas_used": 21000,
+    "effective_gas_price": 0,
+    "contract_address": null,
+    "logs": [],
+    "l1_fee": 0
+  },
+  "block_time": "2026-09-28T13:04:59+00:00",
+  "subject_state": {
+    "balance_before": 0,
+    "balance_after": 400000000000000,
+    "nonce_before": 0,
+    "nonce_after": 1,
+    "balance_delta_attributable": true
+  }
+}

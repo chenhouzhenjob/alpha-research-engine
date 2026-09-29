@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "compound_v2_like",
   "case": "redeem_vbnb",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0x852a12e300000000000000000000000000000000000000000000000006f05b59d3b20000",
     "nonce": 1277,
-    "gas_price": 50053817
+    "gas_price": 50053817,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95",
@@ -72,7 +74,8 @@
         "block_number": 124545317,
         "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-09-28T15:02:38+00:00",
   "subject_state": {

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "wrapped_native",
   "case": "wrap",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 4421615610686012,
     "input": "0xd0e30db0",
     "nonce": 5,
-    "gas_price": 62500000
+    "gas_price": 62500000,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0xc97c7906861caa2da1cd69c9dafd123a990076f7cee0f9f2e19ee5ab1c5586ce",
@@ -39,7 +41,8 @@
         "block_number": 124641173,
         "tx_hash": "0xc97c7906861caa2da1cd69c9dafd123a990076f7cee0f9f2e19ee5ab1c5586ce"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-09-29T03:01:45+00:00",
   "subject_state": {

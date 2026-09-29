@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "compound_v2_like",
   "case": "repay_on_behalf_payer",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0xc6cd25f6000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc02550000000000000000000000000000000000000000000000000a604a1679308fd8",
     "nonce": 540,
-    "gas_price": 53109098
+    "gas_price": 53109098,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0xc45c22e3dbbd4f092a55d9a07187a4efb2e6a3a564184700946704584f56a35d",
@@ -284,7 +286,8 @@
         "block_number": 124458675,
         "tx_hash": "0xc45c22e3dbbd4f092a55d9a07187a4efb2e6a3a564184700946704584f56a35d"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-09-28T04:12:31+00:00",
   "subject_state": {

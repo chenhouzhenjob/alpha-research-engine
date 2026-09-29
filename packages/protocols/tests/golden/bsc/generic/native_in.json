@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "generic",
   "case": "native_in",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 211400000000000000,
     "input": "0x",
     "nonce": 6587329,
-    "gas_price": 2000000000
+    "gas_price": 2000000000,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x4183a7fa665d7fadf58f1963fb7c70a7661096795b561b866b5610beb7666881",
@@ -27,7 +29,8 @@
     "gas_used": 21000,
     "effective_gas_price": 2000000000,
     "contract_address": null,
-    "logs": []
+    "logs": [],
+    "l1_fee": null
   },
   "block_time": "2024-03-29T07:01:00+00:00",
   "subject_state": {

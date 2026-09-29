@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "generic",
   "case": "erc20_in",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0xa9059cbb00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be000000000000000000000000000000000000000000000002b2af0afd45482400",
     "nonce": 24785555,
-    "gas_price": 2000000000
+    "gas_price": 2000000000,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988",
@@ -40,7 +42,8 @@
         "block_number": 37385955,
         "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2024-03-29T06:51:15+00:00",
   "subject_state": {

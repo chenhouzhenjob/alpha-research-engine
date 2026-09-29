@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "cases": [
     {
       "family": "generic",
@@ -336,6 +336,166 @@
       "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712",
       "subject_wallet": "0x7ede7fefe5f4cc0786757441d11587f8b7830389",
       "note": "从 Comptroller 领取 XVS"
+    },
+    {
+      "family": "generic",
+      "case": "native_out",
+      "chain": "base",
+      "tx_hash": "0x1ae71057df2cd44de0a425bf75fe9b7ed7ddcdf6e4222e6b10db4f93354d991d",
+      "subject_wallet": "0xdc9c5e34959ec3643af1e1d34a83d6b251aab1ef",
+      "note": "Base 纯 ETH 转出：gas 必须加 l1Fee"
+    },
+    {
+      "family": "generic",
+      "case": "l1_deposit",
+      "chain": "base",
+      "tx_hash": "0x1f8875e370f525bc502d614a480f907d4b0478d1187510fbe0dcaa37828876f9",
+      "subject_wallet": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+      "note": "OP Stack 存款交易：凭空铸造 ETH，无日志，不付 gas"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "wrap",
+      "chain": "base",
+      "tx_hash": "0xc35f54bf42100e13e49a83273e00501ff0427666b1c86014cdcd1df33af74324",
+      "subject_wallet": "0xf5708035efa3bcb8479bd655c7297dfea940d877",
+      "note": "直接调用 WETH.deposit 或直接转 ETH"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "unwrap",
+      "chain": "base",
+      "tx_hash": "0x958c28e57612692e2c65568fca07173a102c984e08b15b9aae0b7b0dce7a7bdb",
+      "subject_wallet": "0x723d2f5cba5444cc222ae069e8cc8544ddc1899d",
+      "note": "直接调用 WETH.withdraw"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint",
+      "chain": "base",
+      "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539",
+      "subject_wallet": "0xed9c44bb4cdd0b369d72362be644296288511648",
+      "note": "Uniswap V3 开仓（mint 或含 mint 的 multicall）"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall_unwrap",
+      "chain": "base",
+      "tx_hash": "0x257270e8d6c590d2cc9b0882554e5275bf42ba70072aadc6e137bd37fc3b26f7",
+      "subject_wallet": "0xcb6586874cc04b01cc4fdb777de502cea7b3d6c1",
+      "note": "退出含 unwrapWETH9"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "collect_only",
+      "chain": "base",
+      "tx_hash": "0x662af0a4aa20ac46d6f9ec45798cc272a85e0398758c0757936d23d7dfb2e83c",
+      "subject_wallet": "0x5252915b507eac284c10fba985cd3e4dfa2b98d4",
+      "note": "单独 collect"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity",
+      "chain": "base",
+      "tx_hash": "0xe835c895fe9991505c8ab9911d1ab1e470f3c3ca5bba6da0ac8cc7dc75897cdc",
+      "subject_wallet": "0x9905c41b6007ded4784b3857e3e7bd071c1f8b44",
+      "note": "Uniswap V2 添加流动性"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity_eth",
+      "chain": "base",
+      "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f",
+      "subject_wallet": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+      "note": "removeLiquidityETH：收到 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth",
+      "chain": "base",
+      "tx_hash": "0x1e1e2e48cf3e498f0125a77d1dd2bf76e4b3be31a043744dc40fab1ab45624c5",
+      "subject_wallet": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+      "note": "token 换 ETH"
+    },
+    {
+      "family": "generic",
+      "case": "erc20_out",
+      "chain": "ethereum",
+      "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6",
+      "subject_wallet": "0x41be1b985efe4c491e12f6ecac519f7917c8ff11",
+      "note": "以太坊 USDT.transfer（非标准 ERC20：不返回 bool）"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "wrap",
+      "chain": "ethereum",
+      "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb",
+      "subject_wallet": "0x6cb5ee0270d405ccee26b9b45629df80148dbe92",
+      "note": "直接调用 WETH.deposit 或直接转 ETH"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "unwrap",
+      "chain": "ethereum",
+      "tx_hash": "0x0913bace27719dd6326d0bc6ff0ce5b015446ff216d4b025c9bf0b27813d6add",
+      "subject_wallet": "0xac4af458ad95e8add99670a4f1e65ca3d8ff3600",
+      "note": "直接调用 WETH.withdraw"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint",
+      "chain": "ethereum",
+      "tx_hash": "0x05d07b5352fd04a447e9595cc6057df021764813f591586439cfa9a075c40daf",
+      "subject_wallet": "0x140bb7a0702788d7f5887866a6f3e069c6663663",
+      "note": "Uniswap V3 开仓（mint 或含 mint 的 multicall）"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall_unwrap",
+      "chain": "ethereum",
+      "tx_hash": "0xc0e25dba3af7a490ccb3a553b5fd24d6bd163f0011063c30910c987b0863341b",
+      "subject_wallet": "0x3eb5af2576b2068b748ae068628963abb858a6e9",
+      "note": "退出含 unwrapWETH9"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "collect_only",
+      "chain": "ethereum",
+      "tx_hash": "0xe1a8321f67f09fd3b95e78ba350be0788c5f731eef48f49351fd0b089cfa29c4",
+      "subject_wallet": "0x7af73fdeb5a533df73838f7801137d719f2ccc18",
+      "note": "单独 collect"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity",
+      "chain": "ethereum",
+      "tx_hash": "0xa12c730019b276a1a33bda9e247792c13670d83928ce0c4df2ac2f9aed0bc118",
+      "subject_wallet": "0xe9bb834abf93069c9c71dc84eb9ed0058c9b3b07",
+      "note": "Uniswap V2 添加流动性"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity_eth",
+      "chain": "ethereum",
+      "tx_hash": "0xd3c285a8e2eeed07b252a234cd182659dfeb807048e2ae74e876ca1d5593f131",
+      "subject_wallet": "0x656c54089502d4ab36a35166b514ec761c33f4b7",
+      "note": "removeLiquidityETH：收到 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth",
+      "chain": "ethereum",
+      "tx_hash": "0xc478ad1958674597562f0d55c21364ff054392c23b89016986cadcf449fd27a5",
+      "subject_wallet": "0x3e0feac2bc9c1a3d6b0200ff89808240bdc85e8b",
+      "note": "token 换 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth_tax_token",
+      "chain": "ethereum",
+      "tx_hash": "0x0914871f3f7580cf7d7b8e04d87dde12dd2989795b0fe9cb349fe1e035d596ad",
+      "subject_wallet": "0xc6a304cad64c1c6922fbf320eb93ebc4307b4321",
+      "note": "带转账税的 token 换 ETH：路由解包两次，只有钱包转出 token 之后的第一次属于钱包"
     }
   ]
 }

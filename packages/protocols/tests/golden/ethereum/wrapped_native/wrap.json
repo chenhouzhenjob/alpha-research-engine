@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "family": "wrapped_native",
+  "case": "wrap",
+  "chain": "ethereum",
+  "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb",
+  "subject_wallet": "0x6cb5ee0270d405ccee26b9b45629df80148dbe92",
+  "note": "直接调用 WETH.deposit 或直接转 ETH",
+  "tx": {
+    "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb",
+    "block_number": 26080528,
+    "tx_index": 191,
+    "from_address": "0x6cb5ee0270d405ccee26b9b45629df80148dbe92",
+    "to_address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "value": 1652872459249277,
+    "input": "0xd0e30db0",
+    "nonce": 6969,
+    "gas_price": 745837037,
+    "tx_type": 2,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb",
+    "block_number": 26080528,
+    "tx_index": 191,
+    "from_address": "0x6cb5ee0270d405ccee26b9b45629df80148dbe92",
+    "to_address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "status": 1,
+    "gas_used": 27938,
+    "effective_gas_price": 745837037,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "topics": [
+          "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c",
+          "0x0000000000000000000000006cb5ee0270d405ccee26b9b45629df80148dbe92"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000005df475bcae67d",
+        "log_index": 1315,
+        "block_number": 26080528,
+        "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-29T03:47:35+00:00",
+  "subject_state": {
+    "balance_before": 1001652872459249174,
+    "balance_after": 999979162804860191,
+    "nonce_before": 6969,
+    "nonce_after": 6970,
+    "balance_delta_attributable": true
+  }
+}

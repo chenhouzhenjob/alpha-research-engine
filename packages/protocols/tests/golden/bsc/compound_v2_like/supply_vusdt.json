@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "compound_v2_like",
   "case": "supply_vusdt",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0xa0712d68000000000000000000000000000000000000000000000001faf0323151146c6f",
     "nonce": 782,
-    "gas_price": 50000000
+    "gas_price": 50000000,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd",
@@ -96,7 +98,8 @@
         "block_number": 124641168,
         "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-09-29T03:01:43+00:00",
   "subject_state": {

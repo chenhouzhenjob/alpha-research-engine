@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "generic",
   "case": "misc_checkin",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0x183ff085",
     "nonce": 1558,
-    "gas_price": 52158333
+    "gas_price": 52158333,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f",
@@ -39,7 +41,8 @@
         "block_number": 79241932,
         "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-02-04T11:26:48+00:00",
   "subject_state": {

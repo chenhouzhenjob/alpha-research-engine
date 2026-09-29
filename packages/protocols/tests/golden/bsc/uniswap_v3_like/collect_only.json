@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "family": "uniswap_v3_like",
   "case": "collect_only",
   "chain": "bsc",
@@ -15,7 +15,9 @@
     "value": 0,
     "input": "0xfc6f78650000000000000000000000000000000000000000000000000000000000420fb600000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be00000000000000000000000000000000ffffffffffffffffffffffffffffffff00000000000000000000000000000000ffffffffffffffffffffffffffffffff",
     "nonce": 1535,
-    "gas_price": 50700233
+    "gas_price": 50700233,
+    "tx_type": 0,
+    "mint": null
   },
   "receipt": {
     "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263",
@@ -89,7 +91,8 @@
         "block_number": 74981153,
         "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
       }
-    ]
+    ],
+    "l1_fee": null
   },
   "block_time": "2026-01-12T17:16:52+00:00",
   "subject_state": {
