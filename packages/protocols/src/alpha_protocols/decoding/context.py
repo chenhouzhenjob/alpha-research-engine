@@ -36,6 +36,9 @@ class DecodeContext:
     identities: Mapping[str, ContractIdentity] = field(default_factory=dict)  # 合约地址 → 识别结果
     contract_abis: Mapping[str, Sequence[Mapping[str, Any]]] = field(default_factory=dict)  # 合约地址 → 完整 ABI
     event_signatures: Mapping[str, Sequence[str]] = field(default_factory=dict)  # topic0 → 候选事件签名（按可信度排序）
+    # 这条链的包装原生币（WBNB、WETH）地址，来自链画像；路由、仓位管理合约替用户包装或解包时，
+    # 家族靠它识别 Deposit / Withdrawal。None 表示链没有包装原生币
+    wrapped_native: str | None = None
 
     def risk_of(self, asset: str) -> RiskFlag:
         """资产的风险标记；没有元数据的 token 视为 normal（没有证据不下结论）。"""

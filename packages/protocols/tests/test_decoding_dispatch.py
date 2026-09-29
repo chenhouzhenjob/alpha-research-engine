@@ -34,7 +34,14 @@ RESOLVED_BY_WRAPPED_NATIVE = {
     "ethereum/wrapped_native/unwrap",
     "base/wrapped_native/unwrap",
 }
-STILL_NEEDS_INFERENCE = NEEDS_INFERENCE - RESOLVED_BY_WRAPPED_NATIVE
+# 接入 uniswap_v3_like 后：NPM 的 unwrapWETH9（三条链）和 refundETH 由家族推断，余额闭合
+RESOLVED_BY_UNISWAP_V3 = {
+    "bsc/uniswap_v3_like/exit_multicall_unwrap",
+    "bsc/uniswap_v3_like/mint_native",
+    "ethereum/uniswap_v3_like/exit_multicall_unwrap",
+    "base/uniswap_v3_like/exit_multicall_unwrap",
+}
+STILL_NEEDS_INFERENCE = NEEDS_INFERENCE - RESOLVED_BY_WRAPPED_NATIVE - RESOLVED_BY_UNISWAP_V3
 # 家族推断出的是事实，但暴露了另一笔不可见的内部转移：清算人合约把 0.000583 BNB 包装成 WBNB（Deposit
 # 证明它付了这笔钱），而它收到这笔 BNB 的内部调用在没有内部交易数据时看不到。只做通用解码时两笔不可见
 # 的转移恰好相抵、"碰巧"对上；接入家族后如实暴露缺口，并带 internal_unavailable 告警。

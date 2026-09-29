@@ -9,7 +9,9 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
-| 5 分派、认领、整合原语、推断钩子、wrapped_native | ✅ 2026-09-29（未提交） | `decoding/claims.py`（流水账：推断、认领、冲突检测）、`decoding/consolidate.py`、`decoding/evm/dispatch.py`（家族解码器接口、`FamilyRun`、分派顺序）、`decoding/evm/pipeline.py`、`runtime.py`（把链画像、实例配置、家族组装起来）、`families/wrapped_native/`、`instances/wrapped-native.yaml`。三条链的 WBNB/WETH 解包样本完整对上余额 |
+| 7 uniswap_v3_like 解码 | ✅ 2026-09-29（未提交） | `families/uniswap_v3_like/{decoder,calls}.py`、家族类与配置项、`instances/{pancakeswap-v3,uniswap-v3}.yaml`（BSC 上的 PancakeSwap V3；以太坊、Base 上的 Uniswap V3）。11 个 V3 样本全部由家族解码、持仓键带链；三条链的 `unwrapWETH9` 和 BSC 的 `refundETH` 推断后余额闭合；基准钱包的退出按 `fee = collect − decrease` 拆出本金和手续费，与链上 DecreaseLiquidity / Collect 数量逐一相等 |
+| 6 旧插件迁移 | ✅ 2026-09-29 | V3 池子的通用机制（PoolCreated、两种 Swap 变体、getPool、slot0）迁到 `families/uniswap_v3_like/pool.py`，完全参数化；`plugins/pancakeswap_v3.py` 只保留 PancakeSwap（BSC）的常量和 CAKE 排放，方法委托过去。插件原有 4 个测试不改、全部通过，lp-backtest、live-signal、metrics 的测试结果与迁移前相同 |
+| 5 分派、认领、整合原语、推断钩子、wrapped_native | ✅ 2026-09-29 | `decoding/claims.py`（流水账：推断、认领、冲突检测）、`decoding/consolidate.py`、`decoding/evm/dispatch.py`（家族解码器接口、`FamilyRun`、分派顺序）、`decoding/evm/pipeline.py`、`runtime.py`（把链画像、实例配置、家族组装起来）、`families/wrapped_native/`、`instances/wrapped-native.yaml`。三条链的 WBNB/WETH 解包样本完整对上余额 |
 | 4 链画像、实例配置、家族接口 | ✅ 2026-09-29 | `chains/{bsc,ethereum,base}.yaml`（17 个基础资产地址链上核实）、`config/chain_profiles.py`、`config/instances.py`、`families/base.py` 与注册表。金标准测试改为从链画像取链规则和基础资产，结果不变 |
 | 3 通用解码、兜底、风险标记、通用 ABI 解码 | ✅ 2026-09-29 | `decoding/evm/`（`flows`、`rules`、`abi_logs`、`generic`）、`decoding/{context,events,fallback,risk}.py`。62 个样本的原生币流水逐 wei 等于余额差（19 个需要推断的样本单独列出、缺口固定）；每条钱包相关的 ERC20 Transfer 日志恰好对应一条流水；重复解码结果完全相同 |
 | 2 模型、分类表、架构测试 | ✅ 2026-09-29 | `decoding/models.py`、`decoding/taxonomy.py`（28 个组合，每个都声明允许的方向和是否必须认领流水）、`tests/test_architecture.py`（依赖方向、纯度、不写死链和地址，含检查器自检） |
@@ -43,6 +45,16 @@
   - 家族推断流水前先找对得上的真实流水（交易 value，或某些实现本身也发 Transfer），有就认领，避免重复计算；
   - **推断出的事实可能暴露别处的缺口**：清算样本里，清算人合约把 0.000583 BNB 包装成 WBNB（`Deposit` 证明它付了钱），但它收到这笔 BNB 的内部调用不可见。只做通用解码时两笔不可见的转移恰好相抵，接入家族后如实暴露缺口。家族在这种情况（包装用的原生币不是交易 value、又没有内部交易数据）下发 `internal_unavailable` 告警；
   - 数据源给了内部交易时，推断原生币改为匹配已有的内部流水；匹配不上记 `inference_mismatch` 告警、不补流水。
+- 步骤 6 与原计划的差异：原计划是把整个插件移进 `families/uniswap_v3_like/`。实际拆成两部分——各分叉共有的池子机制进家族（参数化，没有写死的链和地址），PancakeSwap（BSC）的常量和 CAKE 排放（MasterChef V3，属于第二阶段的 `masterchef_like`）留在插件里。整体移动会把 BSC 地址带进家族目录，违反架构约束；拆开后家族代码可以直接给以太坊、Base 的 Uniswap V3 复用。
+  - 分叉差异：Swap 事件的变体按 topic0 自动识别；`slot0` 里 `feeProtocol` 的打包方式（Pancake 用两个 16 位、Uniswap 用两个 4 位）无法从返回值判断，必须由调用方声明变体。
+- 步骤 7 对框架的两处补充（抽象缺的部分，先补框架再写家族）：
+  - **流水拆分**：一笔 collect 转账同时包含本金和手续费，经济含义不同，要产出两条事件。流水账新增 `split()`：父流水标为已认领，子流水记 `parent_flow_id`；对账只算叶子流水（`models.leaf_flows`）；
+  - **包装原生币地址进解码上下文**：V3 家族要识别 NPM 发出的 WETH `Deposit` / `Withdrawal`。这是链级事实，由 `runtime` 从链画像填进 `DecodeContext.wrapped_native`，不写进 V3 实例的角色（否则会和 `wrapped-native` 实例的地址冲突）。
+- 步骤 7 的解码约定：
+  - NPM 事件里只有数量没有 token 地址：用同一笔交易里池子的 Mint / Collect 事件（owner 是 NPM、数量相同）配对得到池子，再用池子的 Transfer 得到每一边的 token；
+  - 只有 `Collect`、同一笔交易里没有 `DecreaseLiquidity` 时，记 `claim/lp_fee` 并标 `split_deferred`：它可能包含更早交易里挂起的本金，单笔解码无法判断，由 M3 按挂起本金结转；
+  - 只有 `DecreaseLiquidity` 时，本金留在 NPM 的 tokensOwed 里、没有资产流动，产出状态事件 `informational/none`（extra.action = decrease_liquidity），供 M3 记挂起本金；
+  - `collect` 的收款方是 NPM 时，去向从调用数据读（`unwrapWETH9` / `sweepToken` 的收款方）；读不到就告警，不猜。
 
 ## 1. 目标与原则
 

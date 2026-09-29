@@ -65,6 +65,7 @@ def decode_context(
         identities=identities,
         contract_abis=dict(contract_abis or {}),
         event_signatures=dict(event_signatures or {}),
+        wrapped_native=chain_profiles()[chain].wrapped_native,
     )
 
 

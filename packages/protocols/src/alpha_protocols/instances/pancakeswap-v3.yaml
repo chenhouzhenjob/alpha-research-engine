@@ -1,0 +1,16 @@
+# PancakeSwap V3。地址和常量于 2026-09-29 链上核实：用 CREATE2 计算的 WBNB/USDT 0.05% 池地址
+# 与 factory.getPool 一致（部署池子的是 pool_deployer，不是 factory）。
+instance_key: pancakeswap-v3
+family: uniswap_v3_like
+protocol: PancakeSwap
+version: v3
+options:
+  variant: pancake
+  pool_init_code_hash: "0x6ce8eb472fa82df5469c6ab6d485f17c3ad13c8cd7af59b3d4a8026c5ce0f7e2"
+  fee_tick_spacing: {100: 1, 500: 10, 2500: 50, 10000: 200}
+deployments:
+  bsc:
+    roles:
+      factory: ["0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"]
+      pool_deployer: ["0x41ff9aa7e16b8b1a8a8dc4f0efacd93d02d071c9"]
+      position_manager: ["0x46a15b0b27311cedf172ab29e4f4766fbe7f4364"]

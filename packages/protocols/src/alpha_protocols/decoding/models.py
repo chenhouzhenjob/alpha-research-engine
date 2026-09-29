@@ -9,7 +9,7 @@ M3 的人工修正按 `(chain, tx_hash, seq, subject_wallet)` 定位事件，依
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -58,10 +58,20 @@ class AssetFlow:
     source: FlowSource
     token_id: int | None = None  # NFT 和 ERC1155 的 tokenId；其他为 None
     log_index: int | None = None  # 来自日志时为日志序号；来自交易字段或内部交易时为 None
+    # 由另一条流水拆分而来时为父流水的 flow_id（例如一笔 collect 转账拆成本金和手续费）；否则为 None。
+    # 被拆分的父流水仍保留在流水表里供追溯，但对账只算叶子流水（见 `leaf_flows`）
+    parent_flow_id: int | None = None
 
     def __post_init__(self) -> None:
         if self.amount_raw < 0:
             raise ValueError(f"资产流水数量不能为负：{self.amount_raw}")
+
+
+def leaf_flows(flows: Iterable[AssetFlow]) -> list[AssetFlow]:
+    """去掉已被拆分的父流水，只保留实际生效的流水；按资产汇总、对账都应当用它。"""
+    items = list(flows)
+    parents = {f.parent_flow_id for f in items if f.parent_flow_id is not None}
+    return [f for f in items if f.flow_id not in parents]
 
 
 @dataclass(frozen=True)

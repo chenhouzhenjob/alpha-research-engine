@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import replace
 
 from .models import AssetFlow, AssetFlowKind, DecodeWarning, FlowSource, WarningCode
 
@@ -62,6 +63,28 @@ class FlowLedger:
                 raise DecodeConflictError(f"流水 {i} 已被 {self._owner[i]} 认领，{owner} 又认领了一次")
         for i in ids:
             self._owner[i] = owner
+
+    def split(self, flow_id: int, amounts: Iterable[int], owner: str) -> list[int]:
+        """把一条未认领的流水按数量拆成几条子流水，返回子流水的 flow_id。
+
+        一笔转账有时包含经济含义不同的几部分（V3 的 collect 里既有取回的本金也有手续费），
+        要分别产出事件。父流水被标为已由 `owner` 认领（兜底不会再处理它），子流水继承父流水的
+        资产、两端、来源和日志序号，记录 `parent_flow_id`。
+
+        @raises ValueError 拆分数量之和不等于原数量，或有负数
+        @raises DecodeConflictError 父流水已被认领
+        """
+        parts = list(amounts)
+        parent = self.get(flow_id)
+        if any(a < 0 for a in parts) or sum(parts) != parent.amount_raw:
+            raise ValueError(f"流水 {flow_id} 的拆分 {parts} 之和不等于 {parent.amount_raw}")
+        self.claim([flow_id], owner)
+        ids = []
+        for amount in parts:
+            child = replace(parent, flow_id=len(self._flows), amount_raw=amount, parent_flow_id=flow_id)
+            self._flows.append(child)
+            ids.append(child.flow_id)
+        return ids
 
     def infer(
         self,

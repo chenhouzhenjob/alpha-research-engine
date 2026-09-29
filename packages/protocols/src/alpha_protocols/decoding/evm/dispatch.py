@@ -84,6 +84,10 @@ class FamilyRun:
             kind, asset, amount_raw, from_address, to_address, evidence_log_index=evidence.log_index, token_id=token_id
         )
 
+    def split(self, flow_id: int, amounts: Sequence[int]) -> list[int]:
+        """把一条流水拆成几条子流水（见 `FlowLedger.split`），返回子流水的 flow_id。"""
+        return self.ledger.split(flow_id, amounts, self.decoder.decoder_version)
+
     def warn(self, code: WarningCode, detail: str) -> None:
         self.ledger.warnings.append(DecodeWarning(code, f"{self.decoder.instance_key}：{detail}"))
 

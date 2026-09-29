@@ -118,7 +118,10 @@ def decode_evm_tx(
     ]
     warnings += ledger.warnings
     events = finalize(drafts)
-    claimed = {i for e in events for i in e.claimed_flow_ids}
+    # 已认领 = 事件认领的 + 流水账里被家族认领的（例如被拆分的父流水，由子流水的事件认领）
+    claimed = {i for e in events for i in e.claimed_flow_ids} | {
+        f.flow_id for f in ledger.flows if ledger.is_claimed(f.flow_id)
+    }
     return DecodedTx(
         chain=ctx.chain,
         tx_hash=tx.tx_hash,

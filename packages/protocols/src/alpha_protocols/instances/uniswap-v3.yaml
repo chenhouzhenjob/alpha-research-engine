@@ -1,0 +1,19 @@
+# Uniswap V3。地址于 2026-09-29 链上核实：NPM.factory()、NPM.WETH9() 与预期一致；用 CREATE2（部署者即 factory）
+# 计算的 WETH/USDC 0.05% 池地址与 factory.getPool 一致。
+instance_key: uniswap-v3
+family: uniswap_v3_like
+protocol: Uniswap
+version: v3
+options:
+  variant: uniswap
+  pool_init_code_hash: "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+  fee_tick_spacing: {100: 1, 500: 10, 3000: 60, 10000: 200}
+deployments:
+  ethereum:
+    roles:
+      factory: ["0x1f98431c8ad98523631ae4a59f267346ea31f984"]
+      position_manager: ["0xc36442b4a4522e871399cd717abdd847ab11fe88"]
+  base:
+    roles:
+      factory: ["0x33128a8fc17869897dce68ed026d694621f6fdfd"]
+      position_manager: ["0x03a520b32c04bf3beef7beb72e919cf822ed34f1"]

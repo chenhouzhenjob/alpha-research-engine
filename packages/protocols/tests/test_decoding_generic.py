@@ -14,6 +14,7 @@ from alpha_protocols.decoding.models import (
     EventType,
     FlowSource,
     WarningCode,
+    leaf_flows,
 )
 
 ALL = all_case_ids()
@@ -45,8 +46,9 @@ NEEDS_INFERENCE = {
 
 
 def _native_net(flows, subject: str) -> int:
+    """钱包的原生币净额；只算叶子流水（被拆分的父流水不重复计算）。"""
     net = 0
-    for f in flows:
+    for f in leaf_flows(flows):
         if f.asset != NATIVE:
             continue
         if f.to_address == subject:
