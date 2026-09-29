@@ -3,7 +3,14 @@ name = "alpha-protocols"
 version = "0.1.0"
 description = "协议插件层：声明种子地址、事件语义与识别逻辑，新增协议只动这里"
 requires-python = ">=3.11"
-dependencies = ["alpha-core", "alpha-chains", "web3>=7.0", "eth-abi>=5.0"]
+dependencies = [
+    "alpha-core",
+    "alpha-chains",
+    "web3>=7.0",
+    "eth-abi>=5.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+]
 
 [build-system]
 requires = ["hatchling"]

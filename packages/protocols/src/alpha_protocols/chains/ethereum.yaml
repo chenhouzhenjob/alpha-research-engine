@@ -1,0 +1,16 @@
+# 以太坊主网链画像。基础资产地址已于 2026-09-29 链上核实（注意 USDT、USDC 为 6 位精度）。
+chain: ethereum
+vm: evm
+native: {symbol: ETH, decimals: 18}
+wrapped_native: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+gas_model: standard
+create2_variant: standard
+system_tx_rules: []
+provider_slugs: {ankr: eth}
+assets:
+  - {asset_id: eth,  address: native}
+  - {asset_id: eth,  address: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", symbol: WETH, decimals: 18}
+  - {asset_id: usdt, address: "0xdac17f958d2ee523a2206206994597c13d831ec7", symbol: USDT, decimals: 6}
+  - {asset_id: usdc, address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", symbol: USDC, decimals: 6}
+  - {asset_id: dai,  address: "0x6b175474e89094c44da98b954eedeac495271d0f", symbol: DAI, decimals: 18}
+  - {asset_id: btc,  address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", symbol: WBTC, decimals: 8}

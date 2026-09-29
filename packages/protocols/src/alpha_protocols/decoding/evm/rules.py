@@ -27,6 +27,13 @@ class SystemTxRule(StrEnum):
     OP_DEPOSIT = "op_deposit"
 
 
+class Create2Variant(StrEnum):
+    """CREATE2 地址的计算方式（协议识别第一层用它校验池子、交易对是否属于某个工厂）。"""
+
+    STANDARD = "standard"  # keccak256(0xff ++ deployer ++ salt ++ keccak256(init_code))[12:]，以太坊及绝大多数 EVM 链
+    # zkSync Era 等链的公式不同，接入对应链时在这里新增取值并实现
+
+
 # OP Stack 存款交易的 EIP-2718 类型号
 OP_DEPOSIT_TX_TYPE = 0x7E
 

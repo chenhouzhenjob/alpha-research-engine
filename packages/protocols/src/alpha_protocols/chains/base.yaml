@@ -1,0 +1,16 @@
+# Base（OP Stack L2）链画像。基础资产地址已于 2026-09-29 链上核实。
+chain: base
+vm: evm
+native: {symbol: ETH, decimals: 18}
+wrapped_native: "0x4200000000000000000000000000000000000006"
+gas_model: op_stack            # 普通交易的 gas 要加回执里的 l1Fee（L1 数据费）
+create2_variant: standard
+system_tx_rules: [op_deposit]  # L1 存款交易（类型 0x7e）凭空铸造 ETH，不产生日志、不付 gas
+provider_slugs: {ankr: base}
+assets:
+  - {asset_id: eth,  address: native}
+  - {asset_id: eth,  address: "0x4200000000000000000000000000000000000006", symbol: WETH, decimals: 18}
+  - {asset_id: usdc, address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", symbol: USDC, decimals: 6}
+  - {asset_id: usdc, address: "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca", symbol: USDbC, decimals: 6}  # 早期桥接版 USDC
+  - {asset_id: dai,  address: "0x50c5725949a6f0c72e6c4a641f24049a917db0cb", symbol: DAI, decimals: 18}
+  - {asset_id: btc,  address: "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", symbol: cbBTC, decimals: 8}
