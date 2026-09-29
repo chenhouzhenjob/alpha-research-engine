@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "family": "generic",
+  "case": "misc_checkin",
+  "chain": "bsc",
+  "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "checkIn() 签到，不动资产",
+  "tx": {
+    "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f",
+    "block_number": 79241932,
+    "tx_index": 57,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x54d591ab48823760f6009b47d75cbbef42df984c",
+    "value": 0,
+    "input": "0x183ff085",
+    "nonce": 1558,
+    "gas_price": 52158333
+  },
+  "receipt": {
+    "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f",
+    "block_number": 79241932,
+    "tx_index": 57,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x54d591ab48823760f6009b47d75cbbef42df984c",
+    "status": 1,
+    "gas_used": 31891,
+    "effective_gas_price": 52158333,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x54d591ab48823760f6009b47d75cbbef42df984c",
+        "topics": [
+          "0xfe589fddab4c945824753b3a1c469ba4163518450afd545b4f139412d5cb17b8",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be"
+        ],
+        "data": "0x",
+        "log_index": 213,
+        "block_number": 79241932,
+        "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f"
+      }
+    ]
+  },
+  "block_time": "2026-02-04T11:26:48+00:00",
+  "subject_state": {
+    "balance_before": 7487282142051894,
+    "balance_after": 7485618760654191,
+    "nonce_before": 1558,
+    "nonce_after": 1559,
+    "balance_delta_attributable": true
+  }
+}

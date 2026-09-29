@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "family": "generic",
+  "case": "approve",
+  "chain": "bsc",
+  "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "USDT approve",
+  "tx": {
+    "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97",
+    "block_number": 38186457,
+    "tx_index": 178,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "value": 0,
+    "input": "0x095ea7b3000000000000000000000000de70456a4d47f43b3166f2ab3b883e2ab7bed3fdffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "nonce": 2,
+    "gas_price": 1000000000
+  },
+  "receipt": {
+    "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97",
+    "block_number": 38186457,
+    "tx_index": 178,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "status": 1,
+    "gas_used": 46506,
+    "effective_gas_price": 1000000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x000000000000000000000000de70456a4d47f43b3166f2ab3b883e2ab7bed3fd"
+        ],
+        "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "log_index": 466,
+        "block_number": 38186457,
+        "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97"
+      }
+    ]
+  },
+  "block_time": "2024-04-26T03:14:22+00:00",
+  "subject_state": {
+    "balance_before": 211296794000000000,
+    "balance_after": 211250288000000000,
+    "nonce_before": 2,
+    "nonce_after": 3,
+    "balance_delta_attributable": true
+  }
+}

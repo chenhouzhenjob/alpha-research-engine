@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "family": "generic",
+  "case": "erc20_out",
+  "chain": "bsc",
+  "tx_hash": "0x11b821815d72fb0212e1b44869b7b4b973c1786dca8427fc91e4363f5424d066",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "钱包直接调用 USDT.transfer 转出",
+  "tx": {
+    "tx_hash": "0x11b821815d72fb0212e1b44869b7b4b973c1786dca8427fc91e4363f5424d066",
+    "block_number": 37386219,
+    "tx_index": 164,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "value": 0,
+    "input": "0xa9059cbb000000000000000000000000c9c050880f09e443866da60420eb4c9a82339485000000000000000000000000000000000000000000000001158e460913d00000",
+    "nonce": 0,
+    "gas_price": 1000000000
+  },
+  "receipt": {
+    "tx_hash": "0x11b821815d72fb0212e1b44869b7b4b973c1786dca8427fc91e4363f5424d066",
+    "block_number": 37386219,
+    "tx_index": 164,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "status": 1,
+    "gas_used": 51615,
+    "effective_gas_price": 1000000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x000000000000000000000000c9c050880f09e443866da60420eb4c9a82339485"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000001158e460913d00000",
+        "log_index": 709,
+        "block_number": 37386219,
+        "tx_hash": "0x11b821815d72fb0212e1b44869b7b4b973c1786dca8427fc91e4363f5424d066"
+      }
+    ]
+  },
+  "block_time": "2024-03-29T07:04:27+00:00",
+  "subject_state": {
+    "balance_before": 211400000000000000,
+    "balance_after": 211348385000000000,
+    "nonce_before": 0,
+    "nonce_after": 1,
+    "balance_delta_attributable": true
+  }
+}

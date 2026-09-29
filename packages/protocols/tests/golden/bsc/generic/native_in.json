@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "family": "generic",
+  "case": "native_in",
+  "chain": "bsc",
+  "tx_hash": "0x4183a7fa665d7fadf58f1963fb7c70a7661096795b561b866b5610beb7666881",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "外部地址直接转入 BNB",
+  "tx": {
+    "tx_hash": "0x4183a7fa665d7fadf58f1963fb7c70a7661096795b561b866b5610beb7666881",
+    "block_number": 37386150,
+    "tx_index": 69,
+    "from_address": "0xbd612a3f30dca67bf60a39fd0d35e39b7ab80774",
+    "to_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "value": 211400000000000000,
+    "input": "0x",
+    "nonce": 6587329,
+    "gas_price": 2000000000
+  },
+  "receipt": {
+    "tx_hash": "0x4183a7fa665d7fadf58f1963fb7c70a7661096795b561b866b5610beb7666881",
+    "block_number": 37386150,
+    "tx_index": 69,
+    "from_address": "0xbd612a3f30dca67bf60a39fd0d35e39b7ab80774",
+    "to_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "status": 1,
+    "gas_used": 21000,
+    "effective_gas_price": 2000000000,
+    "contract_address": null,
+    "logs": []
+  },
+  "block_time": "2024-03-29T07:01:00+00:00",
+  "subject_state": {
+    "balance_before": 0,
+    "balance_after": 211400000000000000,
+    "nonce_before": 0,
+    "nonce_after": 0,
+    "balance_delta_attributable": true
+  }
+}

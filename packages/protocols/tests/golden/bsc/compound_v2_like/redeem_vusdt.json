@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "family": "compound_v2_like",
+  "case": "redeem_vusdt",
+  "chain": "bsc",
+  "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7",
+  "subject_wallet": "0xdc82e19e3c3ff3aad9df51c4c4f58977b9484bd9",
+  "note": "vUSDT 取出（Venus 4 字段 Redeem）",
+  "tx": {
+    "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7",
+    "block_number": 124641498,
+    "tx_index": 5,
+    "from_address": "0xdc82e19e3c3ff3aad9df51c4c4f58977b9484bd9",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "value": 0,
+    "input": "0xdb006a75000000000000000000000000000000000000000000000000000006dae579cd8a",
+    "nonce": 1500,
+    "gas_price": 50000000
+  },
+  "receipt": {
+    "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7",
+    "block_number": 124641498,
+    "tx_index": 5,
+    "from_address": "0xdc82e19e3c3ff3aad9df51c4c4f58977b9484bd9",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "status": 1,
+    "gas_used": 427610,
+    "effective_gas_price": 50000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0x4dec04e750ca11537cabcd8a9eab06494de08da3735bc8871cd41250e190bc04"
+        ],
+        "data": "0x00000000000000000000000000000000000000000026fc12e3a52e7a300624b00000000000000000000000000000000000000000000000000294b01cf504addf00000000000000000000000000000000000000000000000014eeb865b8cef3640000000000000000000000000000000000000000006f2fb8997818d69d1290ea",
+        "log_index": 58,
+        "block_number": 124641498,
+        "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7"
+      },
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0xfa9d964d891991c113b49e3db1932abd6c67263d387119707aafdd6c4010a3a9",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000dc82e19e3c3ff3aad9df51c4c4f58977b9484bd9"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012980ef4e159af39d4eea514afd4d05821cd",
+        "log_index": 59,
+        "block_number": 124641498,
+        "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000dc82e19e3c3ff3aad9df51c4c4f58977b9484bd9"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000006c5f5e7f373c8b326e",
+        "log_index": 60,
+        "block_number": 124641498,
+        "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7"
+      },
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000dc82e19e3c3ff3aad9df51c4c4f58977b9484bd9",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000006dae579cd8a",
+        "log_index": 61,
+        "block_number": 124641498,
+        "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7"
+      },
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0xbd5034ffbd47e4e72a94baa2cdb74c6fad73cb3bcdc13036b72ec8306f5a7646"
+        ],
+        "data": "0x000000000000000000000000dc82e19e3c3ff3aad9df51c4c4f58977b9484bd900000000000000000000000000000000000000000000006c5f5e7f373c8b326e000000000000000000000000000000000000000000000000000006dae579cd8a0000000000000000000000000000000000000000000000000000000000000000",
+        "log_index": 62,
+        "block_number": 124641498,
+        "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7"
+      }
+    ]
+  },
+  "block_time": "2026-09-29T03:04:12+00:00",
+  "subject_state": {
+    "balance_before": 6160893036084602,
+    "balance_after": 6139512536084602,
+    "nonce_before": 1500,
+    "nonce_after": 1501,
+    "balance_delta_attributable": true
+  }
+}

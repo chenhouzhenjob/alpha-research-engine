@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "family": "generic",
+  "case": "erc20_in",
+  "chain": "bsc",
+  "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "别人转入真 USDT，交易不是钱包发起的",
+  "tx": {
+    "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988",
+    "block_number": 37385955,
+    "tx_index": 52,
+    "from_address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "value": 0,
+    "input": "0xa9059cbb00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be000000000000000000000000000000000000000000000002b2af0afd45482400",
+    "nonce": 24785555,
+    "gas_price": 2000000000
+  },
+  "receipt": {
+    "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988",
+    "block_number": 37385955,
+    "tx_index": 52,
+    "from_address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
+    "to_address": "0x55d398326f99059ff775485246999027b3197955",
+    "status": 1,
+    "gas_used": 51627,
+    "effective_gas_price": 2000000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000008894e0a0c962cb723c1976a4421c95949be2d4e3",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000002b2af0afd45482400",
+        "log_index": 85,
+        "block_number": 37385955,
+        "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988"
+      }
+    ]
+  },
+  "block_time": "2024-03-29T06:51:15+00:00",
+  "subject_state": {
+    "balance_before": 0,
+    "balance_after": 0,
+    "nonce_before": 0,
+    "nonce_after": 0,
+    "balance_delta_attributable": true
+  }
+}

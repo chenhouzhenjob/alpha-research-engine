@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "family": "compound_v2_like",
+  "case": "claim_xvs",
+  "chain": "bsc",
+  "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712",
+  "subject_wallet": "0x7ede7fefe5f4cc0786757441d11587f8b7830389",
+  "note": "从 Comptroller 领取 XVS",
+  "tx": {
+    "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712",
+    "block_number": 124347203,
+    "tx_index": 42,
+    "from_address": "0x7ede7fefe5f4cc0786757441d11587f8b7830389",
+    "to_address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+    "value": 0,
+    "input": "0x86df31ee0000000000000000000000007ede7fefe5f4cc0786757441d11587f8b783038900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a07c5b74c9b40447a954e1466938b865b6bbea36",
+    "nonce": 577,
+    "gas_price": 71500000
+  },
+  "receipt": {
+    "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712",
+    "block_number": 124347203,
+    "tx_index": 42,
+    "from_address": "0x7ede7fefe5f4cc0786757441d11587f8b7830389",
+    "to_address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+    "status": 1,
+    "gas_used": 387219,
+    "effective_gas_price": 71500000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0x837bdc11fca9f17ce44167944475225a205279b17e88c791c3b1f66f354668fb",
+          "0x000000000000000000000000a07c5b74c9b40447a954e1466938b865b6bbea36",
+          "0x0000000000000000000000007ede7fefe5f4cc0786757441d11587f8b7830389"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002d8e24764676ba0e426b5339a45f357",
+        "log_index": 140,
+        "block_number": 124347203,
+        "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712"
+      },
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0xfa9d964d891991c113b49e3db1932abd6c67263d387119707aafdd6c4010a3a9",
+          "0x000000000000000000000000a07c5b74c9b40447a954e1466938b865b6bbea36",
+          "0x0000000000000000000000007ede7fefe5f4cc0786757441d11587f8b7830389"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000030f29783000000000000000000000000000705f1c65bbc236ce63b27757eb6c2fd87dba2",
+        "log_index": 141,
+        "block_number": 124347203,
+        "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712"
+      },
+      {
+        "address": "0xc79cb7efebd121dc4b39ea141c214606595d665a",
+        "topics": [
+          "0x067a69521c594f269500a8d1fd306d6cade49e09512a3fdf637a16aa1694dd88",
+          "0x000000000000000000000000cf6bb5389c92bdda8a3747ddb454cb7a64626c63"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000002fb01b60023657ba000000000000000000000000000000000000000000000000302b46b96b2b6800",
+        "log_index": 142,
+        "block_number": 124347203,
+        "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712"
+      },
+      {
+        "address": "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000fd36e2c2a6789db23113685031d7f16329158384",
+          "0x0000000000000000000000007ede7fefe5f4cc0786757441d11587f8b7830389"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000019848521f15129a",
+        "log_index": 143,
+        "block_number": 124347203,
+        "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712"
+      }
+    ]
+  },
+  "block_time": "2026-09-27T14:16:20+00:00",
+  "subject_state": {
+    "balance_before": 31559100014788872,
+    "balance_after": 31531413856288872,
+    "nonce_before": 577,
+    "nonce_after": 578,
+    "balance_delta_attributable": true
+  }
+}
