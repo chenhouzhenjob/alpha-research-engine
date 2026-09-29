@@ -6,18 +6,22 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
 from alpha_core.types import Chain
 
-__all__ = ["BatchResult", "ChainAdapter", "LogEntry", "RawLog", "TopicFilter", "TxInfo", "TxReceipt"]
+__all__ = ["BatchResult", "BlockRef", "ChainAdapter", "LogEntry", "RawLog", "TopicFilter", "TxInfo", "TxReceipt"]
 
 K = TypeVar("K", bound=Hashable)
 V = TypeVar("V")
 
 # 日志 topic 过滤条件：某个位置可以是单个值、OR 数组（任一匹配），或 None（不过滤）。
 TopicFilter = str | list[str] | None
+
+# 读取状态时指定的区块：整数区块号表示读该区块执行完之后的状态（需要节点支持归档读取），
+# "latest" 表示读最新区块。
+BlockRef = int | Literal["latest"]
 
 
 @dataclass(frozen=True)
@@ -112,12 +116,26 @@ class ChainAdapter(ABC):
         """批量取合约当前的 runtime bytecode；EOA 返回 "0x"。键为小写地址。"""
 
     @abstractmethod
-    def get_storage_at(self, address: str, slot: int) -> str:
-        """读取合约某个存储槽的当前值（32 字节，0x 开头），用于识别代理合约的实现地址。"""
+    def get_storage_at(self, address: str, slot: int, *, block: BlockRef = "latest") -> str:
+        """读取合约某个存储槽的值（32 字节，0x 开头），用于识别代理合约的实现地址。
+
+        @param block 读哪个区块之后的状态，默认最新
+        """
 
     @abstractmethod
-    def get_transaction_count(self, address: str) -> int:
-        """返回地址当前的 nonce（已发出的交易数），用于核对索引源的数据是否完整。"""
+    def get_transaction_count(self, address: str, *, block: BlockRef = "latest") -> int:
+        """返回地址的 nonce（截至 `block` 已发出的交易数），用于核对索引源的数据是否完整。
+
+        传两个相邻区块的差值，可以证明某个区块里该地址恰好发出了几笔交易。
+        """
+
+    @abstractmethod
+    def get_balances(self, addresses: list[str], *, block: BlockRef = "latest") -> BatchResult[str, int]:
+        """批量读取地址的原生币余额（wei）；键为小写地址。
+
+        用于原生币对账：相邻两个区块的余额差就是该区块里的原生币净变化，
+        可以发现数据源漏掉的内部交易。
+        """
 
     @abstractmethod
     def find_block_by_timestamp(self, target: datetime, *, low: int = 0, high: int | None = None) -> int:

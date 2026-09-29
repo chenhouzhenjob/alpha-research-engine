@@ -259,3 +259,48 @@ def test_rate_limiter_is_applied_before_requests():
     adapter.get_transaction_count("0xabc")  # 25 CU，桶里有 30
     adapter.get_transaction_count("0xabc")  # 还剩 5，需要等 20/30 秒
     assert waits == [pytest.approx(20 / 30)]
+
+
+def test_block_ref_is_passed_as_hex_and_latest_by_default():
+    adapter, _meter = _adapter([PUBLIC])
+    seen = []
+
+    def handler(p):
+        seen.append((p["method"], p["params"][-1]))
+        return {"result": "0x02"}
+
+    adapter._endpoints[0].post = _responder(handler)
+    adapter.get_transaction_count("0xabc")
+    adapter.get_transaction_count("0xabc", block=40_000_000)
+    adapter.get_storage_at("0xabc", 1, block=7)
+    adapter.raw_call(to="0xabc", data="0x", block=8)
+    assert seen == [
+        ("eth_getTransactionCount", "latest"),
+        ("eth_getTransactionCount", "0x2625a00"),
+        ("eth_getStorageAt", "0x7"),
+        ("eth_call", "0x8"),
+    ]
+
+
+def test_block_ref_rejects_invalid_values():
+    adapter, _meter = _adapter([PUBLIC])
+    for bad in (-1, "earliest", True):
+        with pytest.raises(ValueError):
+            adapter.get_transaction_count("0xabc", block=bad)
+
+
+def test_get_balances_batches_and_reports_failures():
+    adapter, meter = _adapter([PUBLIC])
+
+    def handler(p):
+        addr, tag = p["params"]
+        assert tag == "0x10"
+        if addr == "0xbad":
+            return {"error": {"code": -32000, "message": "missing trie node"}}
+        return {"result": "0xde0b6b3a7640000"}
+
+    adapter._endpoints[0].post = _responder(handler)
+    result = adapter.get_balances(["0xAAA", "0xaaa", "0xbad"], block=16)
+    assert result.ok == {"0xaaa": 10**18}
+    assert "missing trie node" in result.failed["0xbad"]
+    assert _totals(meter)[("publicnode", "eth_getBalance", CallStatus.OK)].call_count == 1

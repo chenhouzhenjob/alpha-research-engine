@@ -27,7 +27,7 @@ from web3 import HTTPProvider, Web3
 from web3.exceptions import Web3RPCError
 from web3.middleware import ExtraDataToPOAMiddleware
 
-from .base import BatchResult, ChainAdapter, LogEntry, RawLog, TopicFilter, TxInfo, TxReceipt
+from .base import BatchResult, BlockRef, ChainAdapter, LogEntry, RawLog, TopicFilter, TxInfo, TxReceipt
 from .providers import cu_for, cu_for_rate_limit, detect_provider
 from .rate_limit import CuTokenBucket
 
@@ -466,21 +466,46 @@ class EvmChainAdapter(ChainAdapter):
                 result.ok[addr] = (resp or "0x").lower()
         return result
 
-    def raw_call(self, *, to: str, data: str) -> bytes:
+    def raw_call(self, *, to: str, data: str, block: BlockRef = "latest") -> bytes:
         """走新调用路径的 `eth_call`：节点返回的执行错误（revert、gas 超限）直接抛
         `RpcResponseError`，不重试也不切换端点。
 
         和历史方法 `call` 的区别：`call` 对 `Web3RPCError` 重试 5 次（指数退避），
         对确定性错误纯属浪费；Multicall 需要尽快拿到错误来决定是否拆小批次，所以用这个方法。
+
+        @param block 在哪个区块之后的状态上执行，默认最新；历史区块需要节点支持归档读取
         """
-        result = self._rpc("eth_call", [{"to": to.lower(), "data": data}, "latest"])
+        result = self._rpc("eth_call", [{"to": to.lower(), "data": data}, _block_param(block)])
         return bytes.fromhex(str(result or "0x").removeprefix("0x"))
 
-    def get_storage_at(self, address: str, slot: int) -> str:
-        return str(self._rpc("eth_getStorageAt", [address.lower(), hex(slot), "latest"])).lower()
+    def get_storage_at(self, address: str, slot: int, *, block: BlockRef = "latest") -> str:
+        return str(self._rpc("eth_getStorageAt", [address.lower(), hex(slot), _block_param(block)])).lower()
 
-    def get_transaction_count(self, address: str) -> int:
-        return int(self._rpc("eth_getTransactionCount", [address.lower(), "latest"]), 16)
+    def get_transaction_count(self, address: str, *, block: BlockRef = "latest") -> int:
+        return int(self._rpc("eth_getTransactionCount", [address.lower(), _block_param(block)]), 16)
+
+    def get_balances(self, addresses: list[str], *, block: BlockRef = "latest") -> BatchResult[str, int]:
+        addrs = list(dict.fromkeys(a.lower() for a in addresses))
+        tag = _block_param(block)
+        responses = self._rpc_batch([("eth_getBalance", [a, tag]) for a in addrs])
+        result: BatchResult[str, int] = BatchResult()
+        for addr, resp in zip(addrs, responses, strict=True):
+            if isinstance(resp, RpcResponseError):
+                result.failed[addr] = str(resp)
+            elif resp is None:
+                result.failed[addr] = "节点未返回余额"
+            else:
+                result.ok[addr] = int(resp, 16)
+        return result
+
+
+def _block_param(block: BlockRef) -> str:
+    """把区块引用转成 JSON-RPC 参数：整数转十六进制，"latest" 原样传递。"""
+    if block == "latest":
+        return "latest"
+    if isinstance(block, bool) or not isinstance(block, int) or block < 0:
+        raise ValueError(f"区块引用必须是非负整数或 'latest'，收到 {block!r}")
+    return hex(block)
 
 
 def _is_http_429(exc: Exception) -> bool:
