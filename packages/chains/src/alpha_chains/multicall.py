@@ -8,7 +8,7 @@
 - 用 `tryAggregate(false, calls)`，每个子调用的成败单独返回；失败的子调用放进结果的
   `success=False`，**不会被当成 0**（DefiLlama 的 permitFailure 会静默吞掉失败，这里不照搬）。
 - 批次大小自适应：整批执行失败（gas 超限、返回过大等）时对半拆开重试，最小拆到 1；
-  配额耗尽（`RpcQuotaExhaustedError`）不拆，直接向上抛，由调用方暂停。
+  额度耗尽（`RpcQuotaExhaustedError`）、限速（`RpcRateLimitedError`）不拆，直接向上抛，由调用方暂停或稍后重试。
 - Multicall3 在 BSC 上的部署地址已于 2026-09-26 用 eth_getCode 核实（3808 字节，
   包含 tryAggregate 和 getEthBalance 的函数选择器）。
 """
@@ -21,7 +21,7 @@ from collections.abc import Hashable
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
 
-from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError
+from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError, RpcRateLimitedError
 from eth_abi.abi import decode, encode
 from eth_abi.exceptions import DecodingError
 
@@ -90,7 +90,8 @@ def multicall(
     @param chunk_size 初始批次大小；默认读 `BNB_MULTICALL_CHUNK`，未配置为 400
     @param block 在哪个区块之后的状态上执行；默认最新。同一批读取在同一个区块上，保证估值用到的状态彼此一致
     @returns 每个子调用的结果；整批失败且拆到单个仍失败的子调用 `success=False` 并带 `error`
-    @raises RpcQuotaExhaustedError 配额耗尽，调用方应暂停
+    @raises RpcQuotaExhaustedError 额度耗尽，调用方应暂停
+    @raises RpcRateLimitedError 全部端点限速且退避重试后仍被拒绝，调用方可稍后重试
     """
     size = max(1, chunk_size or default_chunk_size())
     results: list[CallResult] = []
@@ -104,7 +105,8 @@ def _run_chunk(adapter: SupportsRawCall, calls: list[Call], block: BlockRef) -> 
     try:
         raw = adapter.raw_call(to=MULTICALL3_ADDRESS, data=_encode_try_aggregate(calls), block=block)
         return _decode_try_aggregate(raw, len(calls))
-    except RpcQuotaExhaustedError:
+    except (RpcQuotaExhaustedError, RpcRateLimitedError):
+        # 额度耗尽、限速都和批次大小无关，拆小只会成倍增加调用次数
         raise
     except (ChainAdapterError, DecodingError) as exc:
         if len(calls) == 1:

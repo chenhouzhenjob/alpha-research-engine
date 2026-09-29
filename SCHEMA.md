@@ -398,7 +398,7 @@ token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的�
 | provider | VARCHAR(32) | 否 | 无 | 数据源供应商，如 `nodereal` / `publicnode` / `ankr` / `sourcify` / `geckoterminal`；联合主键之一 |
 | method | VARCHAR(64) | 否 | 无 | RPC 方法名或 HTTP 接口路径；联合主键之一 |
 | job_ref | VARCHAR(64) | 否 | `''` | 关联的任务或会话，如 `job:12`、`session:3`；空串表示无关联（不用 NULL，避免主键失效）；联合主键之一 |
-| status | VARCHAR(16) | 否 | 无 | 调用结果：`ok` / `rate_limited`（限流或配额耗尽）/ `error`；联合主键之一 |
+| status | VARCHAR(16) | 否 | 无 | 调用结果：`ok` / `rate_limited`（短时限速，几秒后恢复）/ `quota_exhausted`（计划额度用完，下个周期才恢复）/ `error`；联合主键之一。2026-09-29 之前写入的 `rate_limited` 两类不分 |
 | call_count | BIGINT | 否 | 0 | 调用次数 |
 | est_cu | BIGINT | 是 | NULL | 估算的计费单位合计；只要有一次调用单价未知就为 NULL，表示合计不完整 |
 | updated_at | TIMESTAMPTZ | 否 | `now()` | 最后一次累加时间 |

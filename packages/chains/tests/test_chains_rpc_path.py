@@ -14,7 +14,7 @@ import requests
 from alpha_chains import evm_common
 from alpha_chains.evm_common import EvmChainAdapter, RpcResponseError
 from alpha_chains.rate_limit import CuTokenBucket
-from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError
+from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError, RpcRateLimitedError
 from alpha_core.metering import CallStatus, InMemoryCallMeter
 from alpha_core.ports import BlockTimeSource
 from alpha_core.types import Chain
@@ -63,7 +63,7 @@ def test_quota_on_first_endpoint_fails_over_to_second():
     adapter._endpoints[1].post = _responder(lambda p: {"result": "0x1"})
     assert adapter.get_transaction_count("0xabc") == 1
     t = _totals(meter)
-    assert t[("nodereal", "eth_getTransactionCount", CallStatus.RATE_LIMITED)].call_count == 1
+    assert t[("nodereal", "eth_getTransactionCount", CallStatus.QUOTA_EXHAUSTED)].call_count == 1
     assert t[("publicnode", "eth_getTransactionCount", CallStatus.OK)].est_cu == 0
 
 
@@ -85,7 +85,9 @@ def test_all_endpoints_quota_raises_without_retrying_same_endpoint():
 
 def test_jsonrpc_quota_message_is_treated_as_quota():
     adapter, _ = _adapter([NODEREAL])
-    adapter._endpoints[0].post = _responder(lambda p: {"error": {"code": -32005, "message": "Monthly quota exceeded"}})
+    adapter._endpoints[0].post = _responder(
+        lambda p: {"error": {"code": -32005, "message": "You've reached your monthly quota limit."}}
+    )
     with pytest.raises(RpcQuotaExhaustedError):
         adapter.get_transaction_count("0xabc")
 
@@ -199,9 +201,9 @@ def test_block_timestamps_use_store_before_rpc_and_write_back():
 
 
 class _HttpErr(requests.exceptions.HTTPError):
-    def __init__(self, status):
+    def __init__(self, status, text=""):
         super().__init__(f"HTTP {status}")
-        self.response = type("R", (), {"status_code": status})()
+        self.response = type("R", (), {"status_code": status, "text": text, "headers": {}})()
 
 
 class _FakeEth:
@@ -221,12 +223,23 @@ class _FakeEth:
         return self.logs
 
 
-def test_legacy_path_all_429_raises_quota_error_and_meters():
-    adapter, meter = _adapter([NODEREAL, PUBLIC])
+def test_legacy_path_all_quota_429_raises_quota_error_and_meters():
+    adapter, meter = _adapter([NODEREAL, NODEREAL.replace("key", "key2")])
     for e in adapter._endpoints:
-        e.web3 = type("W", (), {"eth": _FakeEth(exc=_HttpErr(429))})()
+        e.web3 = type("W", (), {"eth": _FakeEth(exc=_HttpErr(429, "You've reached your monthly quota limit."))})()
     with pytest.raises(RpcQuotaExhaustedError):
         adapter._with_failover(lambda c: c.eth.block_number, "eth_blockNumber")
+    assert _totals(meter)[("nodereal", "eth_blockNumber", CallStatus.QUOTA_EXHAUSTED)].call_count == 2
+
+
+def test_legacy_path_plain_429_is_rate_limit_not_quota():
+    """web3 自己对 429 重试放弃之后：没有额度原文的 429 是短时限速，不能当成额度耗尽让任务停到下个周期。"""
+    adapter, meter = _adapter([NODEREAL, PUBLIC])
+    for e in adapter._endpoints:
+        e.web3 = type("W", (), {"eth": _FakeEth(exc=_HttpErr(429, "Too Many Requests"))})()
+    with pytest.raises(RpcRateLimitedError) as info:
+        adapter._with_failover(lambda c: c.eth.block_number, "eth_blockNumber")
+    assert not isinstance(info.value, RpcQuotaExhaustedError)
     assert _totals(meter)[("nodereal", "eth_blockNumber", CallStatus.RATE_LIMITED)].call_count == 1
 
 
@@ -331,3 +344,123 @@ def test_op_stack_fields_are_parsed_and_absent_elsewhere():
     assert (txs[deposit].tx_type, txs[deposit].mint) == (0x7E, int(BASE_FIXTURE["deposit_tx"]["mint"], 16))
     assert txs[normal].tx_type == 2 and txs[normal].mint is None
     assert receipts[bsc].l1_fee is None and txs[bsc].mint is None
+
+
+# ----------------------------------------------------------------------
+# 429 分两类：短时限速（同一端点退避重试）与计划额度用完（不重试、切换端点）
+# ----------------------------------------------------------------------
+
+ANKR = "https://rpc.ankr.com/bsc/key"
+ANKR_RATE_LIMIT = (
+    '[{"id":1,"jsonrpc":"2.0","error":{"code":-32090,'
+    '"message":"Too many requests, reason: call rate limit exhausted, retry in 10s"}}]'
+)
+NODEREAL_MONTHLY = (
+    '{"jsonrpc":"2.0","id":null,"error":{"code":-32005,"message":"You\'ve reached your monthly quota limit."}}'
+)
+
+
+class _Resp:
+    def __init__(self, status, text="", headers=None, body=None):
+        self.status_code, self.text, self.headers = status, text, headers or {}
+        self._body = body
+
+    def json(self):
+        return self._body
+
+
+def _http(adapter, index, responses):
+    """让第 index 个端点的 HTTP 会话依次返回给定响应（最后一个重复使用），走真实的 _Endpoint.post。"""
+    queue = list(responses)
+    calls = []
+
+    def post(url, json, timeout):
+        calls.append(json)
+        resp = queue.pop(0) if len(queue) > 1 else queue[0]
+        if resp.status_code == 200 and resp._body is None:
+            payload = json
+            resp = _Resp(200, body={"jsonrpc": "2.0", "id": payload["id"], "result": "0x7"})
+        return resp
+
+    adapter._endpoints[index].session.post = post
+    return calls
+
+
+def _limited_adapter(urls, **kwargs):
+    sleeps = []
+    meter = InMemoryCallMeter(app="test")
+    adapter = EvmChainAdapter(Chain.BSC, urls, meter=meter, sleep=sleeps.append, **kwargs)
+    return adapter, meter, sleeps
+
+
+def test_ankr_rate_limit_retries_same_endpoint_after_hinted_wait():
+    adapter, meter, sleeps = _limited_adapter([ANKR, PUBLIC])
+    ankr_calls = _http(adapter, 0, [_Resp(429, ANKR_RATE_LIMIT), _Resp(200)])
+    public_calls = _http(adapter, 1, [_Resp(200)])
+    assert adapter.get_transaction_count("0xabc") == 7
+    assert sleeps == [10.0] and len(ankr_calls) == 2 and public_calls == []
+    t = _totals(meter)
+    assert t[("ankr", "eth_getTransactionCount", CallStatus.RATE_LIMITED)].call_count == 1
+    assert t[("ankr", "eth_getTransactionCount", CallStatus.OK)].call_count == 1
+
+
+def test_retry_after_header_and_wait_cap():
+    adapter, _, sleeps = _limited_adapter([PUBLIC], max_rate_limit_wait=5.0)
+    _http(adapter, 0, [_Resp(429, "Too Many Requests", {"Retry-After": "3"}), _Resp(429, "retry in 60s"), _Resp(200)])
+    adapter.get_transaction_count("0xabc")
+    assert sleeps == [3.0, 5.0]  # 第二次建议 60 秒，封顶 5 秒
+
+
+def test_rate_limit_exhausted_fails_over_then_all_limited_raises_rate_limited():
+    adapter, meter, sleeps = _limited_adapter([ANKR, PUBLIC], rate_limit_attempts=2)
+    ankr_calls = _http(adapter, 0, [_Resp(429, ANKR_RATE_LIMIT)])
+    _http(adapter, 1, [_Resp(200)])
+    assert adapter.get_transaction_count("0xabc") == 7
+    assert len(ankr_calls) == 3 and len(sleeps) == 2  # 原端点 1 次 + 重试 2 次，用尽后切换
+
+    adapter, meter, sleeps = _limited_adapter([ANKR, PUBLIC], rate_limit_attempts=1)
+    _http(adapter, 0, [_Resp(429, ANKR_RATE_LIMIT)])
+    _http(adapter, 1, [_Resp(429, "Too Many Requests")])
+    with pytest.raises(RpcRateLimitedError) as info:
+        adapter.get_transaction_count("0xabc")
+    assert not isinstance(info.value, RpcQuotaExhaustedError)
+    assert sleeps == [10.0, 1.0]  # Ankr 按原文 10 秒；PublicNode 没给提示，按 1 秒起退避
+
+
+def test_monthly_quota_does_not_retry_and_all_quota_raises_quota_error():
+    nodereal2 = NODEREAL.replace("key", "key2")
+    adapter, meter, sleeps = _limited_adapter([NODEREAL, nodereal2])
+    first = _http(adapter, 0, [_Resp(429, NODEREAL_MONTHLY)])
+    _http(adapter, 1, [_Resp(429, NODEREAL_MONTHLY)])
+    with pytest.raises(RpcQuotaExhaustedError):
+        adapter.get_transaction_count("0xabc")
+    assert sleeps == [] and len(first) == 1, "额度耗尽不原地重试"
+    assert _totals(meter)[("nodereal", "eth_getTransactionCount", CallStatus.QUOTA_EXHAUSTED)].call_count == 2
+
+
+def test_quota_on_one_endpoint_and_rate_limit_on_other_raises_rate_limited():
+    """还有端点只是限速：稍后重试就能恢复，不能按额度耗尽让任务停到下个计费周期。"""
+    adapter, _, _ = _limited_adapter([NODEREAL, ANKR], rate_limit_attempts=0)
+    _http(adapter, 0, [_Resp(429, NODEREAL_MONTHLY)])
+    _http(adapter, 1, [_Resp(429, ANKR_RATE_LIMIT)])
+    with pytest.raises(RpcRateLimitedError):
+        adapter.get_transaction_count("0xabc")
+
+
+def test_classify_limit_by_vendor_text():
+    from alpha_chains.providers import LimitKind, classify_limit
+
+    def kind(provider, text, status=429):
+        signal = classify_limit(provider, text, http_status=status)
+        return None if signal is None else (signal.kind, signal.retry_after)
+
+    assert kind("nodereal", "You've reached your monthly quota limit.") == (LimitKind.QUOTA_EXHAUSTED, None)
+    assert kind("nodereal", "You have reached the maximum CUPS limit") == (LimitKind.RATE_LIMITED, None)  # 每秒 CU
+    assert kind("ankr", "call rate limit exhausted, retry in 10s") == (LimitKind.RATE_LIMITED, 10.0)
+    assert kind("ankr", "You have reached the maximum allowed number of requests") == (LimitKind.QUOTA_EXHAUSTED, None)
+    assert kind("unknown", "quota exceeded") == (LimitKind.RATE_LIMITED, None)  # 认不出厂商时只有 monthly 才算额度
+    assert kind("unknown", "monthly capacity limit exceeded") == (LimitKind.QUOTA_EXHAUSTED, None)
+    assert kind("publicnode", "monthly limit") == (LimitKind.RATE_LIMITED, None)  # 免费公共节点没有计划额度
+    assert kind("ankr", "retry in 250ms")[1] == 0.25
+    assert kind("nodereal", "execution reverted", status=200) is None  # 不是限流类错误
+    assert kind("nodereal", "rate limit exceeded", status=200) == (LimitKind.RATE_LIMITED, None)  # 200 正文里的限流

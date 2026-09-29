@@ -95,6 +95,10 @@ graph LR
 - 现有方法（`get_logs`、`call`、`get_block`）仍走 web3 的类型化接口，只是外面套上限速和记账，保证输出格式不变。
 - 批量请求：每批默认 50 个（`BNB_RPC_BATCH_SIZE` 可以覆盖）。批量里单项失败的，单独重试一次；仍失败的放进结果的 `failed` 列表，不静默丢弃。
 - **配额耗尽的判定**：HTTP 429，或者 JSON-RPC 错误信息里含 quota/limit 字样，并且**所有端点都这样**，才抛 `RpcQuotaExhaustedError`（它是 `ChainAdapterError` 的子类，所以现有的 `except ChainAdapterError` 照样能接住）。
+- **（2026-09-29 修订）429 分两类**：M2 冒烟时发现 Ankr 的 429 是每秒限速（原文 "call rate limit exhausted, retry in 10s"），几秒后就恢复，和 NodeReal 的月额度耗尽（"You've reached your monthly quota limit"）完全不同，原来的判定把两者混为一谈，限速时整个任务直接失败。现在由 `providers.classify_limit` 按厂商原文分类（规则与 alpha-lp `rpc-vendor.ts` 的 `isPlanQuotaExhausted` 一致；任何厂商原文带 monthly 一律算额度耗尽；PublicNode 没有计划额度）：
+  - **短时限速**：在同一端点按提示时间（原文的 "retry in Ns"、Retry-After 头，没有则 1、2、4、8 秒）退避重试，单次最多等 30 秒、最多 4 次，用尽再切换端点；全部端点都被拒绝且其中有限速时抛 `RpcRateLimitedError`（调用方可稍后重试），记账 `rate_limited`；
+  - **计划额度用完**：不重试，切换端点；全部端点都是额度用完才抛 `RpcQuotaExhaustedError`，记账 `quota_exhausted`；
+  - Multicall 遇到这两种异常都不对半拆批（拆小只会成倍增加调用）；历史路径（web3 自带 429 重试）放弃后用同一个分类器决定抛哪种异常。
 
 ### 4.2 区块时间的持久化缓存
 

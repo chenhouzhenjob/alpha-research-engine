@@ -105,3 +105,19 @@ def test_balances_report_failed_pairs():
     res = read_balances(chain, [(USDT, WALLET), (other, WALLET)])
     assert res.ok[(USDT, WALLET)] == 123
     assert (other, WALLET) in res.failed
+
+
+def test_rate_limited_is_not_split_into_smaller_batches():
+    """限速和批次大小无关：不能像普通失败那样对半拆分，否则调用次数成倍增加。"""
+    from alpha_core.errors import RpcRateLimitedError
+
+    calls = []
+
+    class _Limited:
+        def raw_call(self, *, to, data, block="latest"):
+            calls.append(data)
+            raise RpcRateLimitedError("限速")
+
+    with pytest.raises(RpcRateLimitedError):
+        multicall(_Limited(), [Call("0x" + "11" * 20, b"\x00")] * 8)
+    assert len(calls) == 1

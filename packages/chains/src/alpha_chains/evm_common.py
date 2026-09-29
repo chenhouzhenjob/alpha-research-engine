@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 import requests
-from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError
+from alpha_core.errors import ChainAdapterError, RpcQuotaExhaustedError, RpcRateLimitedError
 from alpha_core.metering import CallMeter, CallStatus, NullCallMeter
 from alpha_core.ports import BlockTimeSource, BlockTimeStore
 from alpha_core.types import Chain
@@ -28,7 +28,7 @@ from web3.exceptions import Web3RPCError
 from web3.middleware import ExtraDataToPOAMiddleware
 
 from .base import BatchResult, BlockRef, ChainAdapter, LogEntry, RawLog, TopicFilter, TxInfo, TxReceipt
-from .providers import cu_for, cu_for_rate_limit, detect_provider
+from .providers import LimitKind, LimitSignal, classify_limit, cu_for, cu_for_rate_limit, detect_provider
 from .rate_limit import CuTokenBucket
 
 logger = logging.getLogger(__name__)
@@ -49,8 +49,10 @@ _RETRYABLE_EXCEPTIONS = (Web3RPCError, ConnectionError, TimeoutError)
 # 避免在明知没用的同一个端点上先浪费几次重试才切换。
 _FAILOVER_EXCEPTIONS = (*_RETRYABLE_EXCEPTIONS, requests.exceptions.HTTPError)
 
-# JSON-RPC 错误信息里出现这些词，按"限流/配额耗尽"处理（各家措辞不统一，只能关键词匹配）。
-_QUOTA_KEYWORDS = ("quota", "rate limit", "ratelimit", "too many requests", "exceeded the limit", "limit exceeded")
+# 短时限速在同一端点退避重试：没有厂商建议的等待时间时按 1、2、4、8 秒退避；单次等待封顶，
+# 防止厂商给出离谱的 Retry-After 把任务卡住很久。
+DEFAULT_RATE_LIMIT_ATTEMPTS = 4
+DEFAULT_MAX_RATE_LIMIT_WAIT = 30.0
 
 
 def _retrying():
@@ -78,16 +80,26 @@ class RpcResponseError(ChainAdapterError):
 
 
 class _QuotaError(Exception):
-    """内部标记：本端点限流或配额耗尽，应切换下一个端点。"""
+    """内部标记：本端点计划额度用完（月度 CU 等），重试没有意义，应切换下一个端点。"""
+
+
+class _RateLimitedError(Exception):
+    """内部标记：本端点短时限速，按建议时间退避后可以在同一端点重试。"""
+
+    def __init__(self, message: str, retry_after: float | None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after  # 厂商建议的等待秒数；没给为 None
 
 
 class _TransientError(Exception):
     """内部标记：本端点瞬时故障（连接、超时、5xx），可以在同一端点短暂重试。"""
 
 
-def _is_quota_message(message: str) -> bool:
-    lowered = message.lower()
-    return any(k in lowered for k in _QUOTA_KEYWORDS)
+def _limit_error(signal: LimitSignal, message: str) -> Exception:
+    """把分类结果转成内部标记异常。"""
+    if signal.kind is LimitKind.QUOTA_EXHAUSTED:
+        return _QuotaError(message)
+    return _RateLimitedError(message, signal.retry_after)
 
 
 def _hex_to_int(value: str | None) -> int | None:
@@ -123,14 +135,16 @@ class _Endpoint:
             resp = self.session.post(self.url, json=payload, timeout=self.timeout)
         except (requests.ConnectionError, requests.Timeout) as exc:
             raise _TransientError(str(exc)) from exc
-        if resp.status_code == 429:
-            raise _QuotaError(f"HTTP 429: {resp.text[:200]}")
+        text = resp.text[:300]
+        if resp.status_code == 429 or 400 <= resp.status_code < 500:
+            signal = classify_limit(
+                self.provider, text, http_status=resp.status_code, retry_after_header=resp.headers.get("Retry-After")
+            )
+            if signal is not None:
+                raise _limit_error(signal, f"HTTP {resp.status_code}: {text}")
         if resp.status_code >= 500:
-            raise _TransientError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+            raise _TransientError(f"HTTP {resp.status_code}: {text}")
         if resp.status_code >= 400:
-            text = resp.text[:200]
-            if _is_quota_message(text):
-                raise _QuotaError(f"HTTP {resp.status_code}: {text}")
             raise ChainAdapterError(f"{self.url} HTTP {resp.status_code}: {text}")
         return resp.json()
 
@@ -151,6 +165,8 @@ class EvmChainAdapter(ChainAdapter):
         batch_size: int = DEFAULT_BATCH_SIZE,
         request_timeout: float = 20.0,
         transient_attempts: int = 3,
+        rate_limit_attempts: int = DEFAULT_RATE_LIMIT_ATTEMPTS,
+        max_rate_limit_wait: float = DEFAULT_MAX_RATE_LIMIT_WAIT,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         """
@@ -159,6 +175,8 @@ class EvmChainAdapter(ChainAdapter):
         @param block_time_store 区块时间持久化缓存；不传则只缓存在进程内存（原有行为）
         @param batch_size 一次 JSON-RPC 批量请求的最大调用数
         @param transient_attempts 新方法在同一端点上对瞬时故障的最多尝试次数
+        @param rate_limit_attempts 新方法在同一端点上遇到短时限速时最多重试几次，用尽后切换端点
+        @param max_rate_limit_wait 限速退避单次最多等待的秒数
         """
         if not rpc_urls:
             raise ChainAdapterError(f"{chain} 未配置任何 RPC 端点")
@@ -172,6 +190,8 @@ class EvmChainAdapter(ChainAdapter):
         self._block_time_store = block_time_store
         self._batch_size = max(1, batch_size)
         self._transient_attempts = max(1, transient_attempts)
+        self._rate_limit_attempts = max(0, rate_limit_attempts)
+        self._max_rate_limit_wait = max_rate_limit_wait
         self._sleep = sleep
         self._request_id = 0
         # 区块时间戳一经查询即永久缓存（不可变数据只拉一次，见钱包链上行为分析设计方案 7.4）。
@@ -184,10 +204,12 @@ class EvmChainAdapter(ChainAdapter):
     def _with_failover(self, fn: Callable[[Web3], T], method: str | None = None) -> T:
         """依次尝试各个 RPC 端点，全部失败才向上抛出，实现同一次调用的故障转移。
 
-        所有端点都是 HTTP 429 时抛 `RpcQuotaExhaustedError`（`ChainAdapterError` 的子类）。
+        所有端点都是计划额度用完时抛 `RpcQuotaExhaustedError`；都被拒绝但有短时限速时抛
+        `RpcRateLimitedError`（都是 `ChainAdapterError` 的子类）。web3 的 HTTPProvider 自带对 429 的快速重试，
+        它放弃之后这里只做分类和故障转移，不再原地重试。
         """
         last_error: Exception | None = None
-        all_quota = True
+        all_quota, any_limited = True, False
         for endpoint in self._endpoints:
             if method is not None:
                 self._limiter.acquire(cu_for_rate_limit(endpoint.provider, method))
@@ -195,10 +217,11 @@ class EvmChainAdapter(ChainAdapter):
                 result = fn(endpoint.web3)
             except _FAILOVER_EXCEPTIONS as exc:  # noqa: PERF203 - 端点数量很小，性能可忽略
                 last_error = exc
-                is_quota = _is_http_429(exc)
-                all_quota = all_quota and is_quota
+                signal = _http_limit(endpoint.provider, exc)
+                all_quota = all_quota and signal is not None and signal.kind is LimitKind.QUOTA_EXHAUSTED
+                any_limited = any_limited or signal is not None
                 if method is not None:
-                    status = CallStatus.RATE_LIMITED if is_quota else CallStatus.ERROR
+                    status = _limit_status(signal) if signal is not None else CallStatus.ERROR
                     self._meter.record(endpoint.provider, method, cu=cu_for(endpoint.provider, method), status=status)
                 logger.warning("RPC 端点调用失败，切换下一个: %s", exc)
                 continue
@@ -206,7 +229,9 @@ class EvmChainAdapter(ChainAdapter):
                 self._meter.record(endpoint.provider, method, cu=cu_for(endpoint.provider, method))
             return result
         if all_quota and last_error is not None:
-            raise RpcQuotaExhaustedError(f"{self.chain} 全部 RPC 端点均限流或配额耗尽") from last_error
+            raise RpcQuotaExhaustedError(f"{self.chain} 全部 RPC 端点的计划额度均已用完") from last_error
+        if any_limited:
+            raise RpcRateLimitedError(f"{self.chain} 全部 RPC 端点均被拒绝（含短时限速）") from last_error
         raise ChainAdapterError(f"{self.chain} 全部 RPC 端点均失败") from last_error
 
     @_retrying()
@@ -277,9 +302,7 @@ class EvmChainAdapter(ChainAdapter):
         block = self._with_failover(lambda c: c.eth.get_block(block_number), "eth_getBlockByNumber")
         return datetime.fromtimestamp(block["timestamp"], tz=UTC)
 
-    def find_block_by_timestamp(
-        self, target: datetime, *, low: int = 0, high: int | None = None
-    ) -> int:
+    def find_block_by_timestamp(self, target: datetime, *, low: int = 0, high: int | None = None) -> int:
         """二分查找第一个出块时间 >= `target` 的区块号，只依赖区块头时间戳，任何全节点都能查。"""
         hi = high if high is not None else self.get_latest_block()
         lo = low
@@ -300,17 +323,43 @@ class EvmChainAdapter(ChainAdapter):
         return self._request_id
 
     def _post_with_retry(self, endpoint: _Endpoint, payload: dict | list, methods: Sequence[str]) -> Any:
-        """在单个端点上发送请求，瞬时故障按指数退避重试；每次尝试都记账。"""
-        attempt = 0
+        """在单个端点上发送请求；每次尝试都记账。
+
+        - 瞬时故障（连接、超时、5xx）：指数退避重试，最多 `transient_attempts` 次；
+        - 短时限速：按厂商建议的时间（或 1、2、4、8 秒）等待后重试，最多 `rate_limit_attempts` 次，用尽再抛出，
+          由 `_send` 切换端点；
+        - 计划额度用完：不重试，直接抛出。
+        """
+        attempt = limited = 0
         while True:
             attempt += 1
             try:
-                return endpoint.post(payload)
+                response = endpoint.post(payload)
+                # 单个请求返回 200、但 JSON-RPC 错误信息是限速或额度耗尽（有的节点不用 HTTP 429）
+                if isinstance(response, dict) and "error" in response:
+                    message = str(response["error"].get("message", ""))
+                    signal = classify_limit(endpoint.provider, message)
+                    if signal is not None:
+                        raise _limit_error(signal, message)
+                return response
             except _TransientError:
                 self._record(endpoint, methods, CallStatus.ERROR)
                 if attempt >= self._transient_attempts:
                     raise
                 self._sleep(min(5.0, 0.5 * 2 ** (attempt - 1)))  # 0.5s、1s、2s……封顶 5s
+            except _RateLimitedError as exc:
+                self._record(endpoint, methods, CallStatus.RATE_LIMITED)
+                limited += 1
+                if limited > self._rate_limit_attempts:
+                    raise
+                wait = min(
+                    exc.retry_after if exc.retry_after is not None else 2.0 ** (limited - 1), self._max_rate_limit_wait
+                )
+                logger.warning(
+                    "RPC 端点限速，%.1f 秒后重试（第 %d/%d 次）: provider=%s %s",
+                    wait, limited, self._rate_limit_attempts, endpoint.provider, exc,
+                )  # fmt: skip
+                self._sleep(wait)
 
     def _record(self, endpoint: _Endpoint, methods: Sequence[str], status: CallStatus) -> None:
         """按方法分组记账：批量请求里每个子调用都算一次。"""
@@ -322,35 +371,38 @@ class EvmChainAdapter(ChainAdapter):
             self._meter.record(endpoint.provider, m, count=n, cu=None if unit is None else unit * n, status=status)
 
     def _send(self, payload: dict | list, methods: Sequence[str]) -> Any:
-        """依次尝试各端点发送一次请求（单个或批量），返回原始 JSON 响应。"""
+        """依次尝试各端点发送一次请求（单个或批量），返回原始 JSON 响应。
+
+        全部端点都是计划额度用完时抛 `RpcQuotaExhaustedError`；都被拒绝但其中有短时限速（在各自端点上
+        退避重试后仍被拒绝）时抛 `RpcRateLimitedError`；其他失败抛 `ChainAdapterError`。
+        """
         last_error: Exception | None = None
-        all_quota = True
+        all_quota, any_limited = True, False
         for endpoint in self._endpoints:
             self._limiter.acquire(sum(cu_for_rate_limit(endpoint.provider, m) for m in methods))
             try:
                 response = self._post_with_retry(endpoint, payload, methods)
             except _QuotaError as exc:
-                self._record(endpoint, methods, CallStatus.RATE_LIMITED)
-                last_error = exc
-                logger.warning("RPC 端点限流或配额耗尽，切换下一个: %s %s", endpoint.provider, exc)
+                self._record(endpoint, methods, CallStatus.QUOTA_EXHAUSTED)
+                last_error, any_limited = exc, True
+                logger.warning("RPC 端点计划额度已用完，切换下一个: provider=%s %s", endpoint.provider, exc)
+                continue
+            except _RateLimitedError as exc:
+                last_error, any_limited, all_quota = exc, True, False
+                logger.warning("RPC 端点限速重试用尽，切换下一个: provider=%s %s", endpoint.provider, exc)
                 continue
             except (_TransientError, ChainAdapterError) as exc:
                 all_quota = False
                 last_error = exc
-                logger.warning("RPC 端点调用失败，切换下一个: %s %s", endpoint.provider, exc)
+                logger.warning("RPC 端点调用失败，切换下一个: provider=%s %s", endpoint.provider, exc)
                 continue
-            # 单个请求返回的 JSON-RPC 错误如果是限流类，也按配额耗尽切换端点。
-            if isinstance(response, dict) and "error" in response:
-                message = str(response["error"].get("message", ""))
-                if _is_quota_message(message):
-                    self._record(endpoint, methods, CallStatus.RATE_LIMITED)
-                    last_error = _QuotaError(message)
-                    continue
             if isinstance(response, dict) and "error" not in response and not isinstance(payload, list):
                 self._record(endpoint, methods, CallStatus.OK)
             return response, endpoint
         if all_quota and last_error is not None:
-            raise RpcQuotaExhaustedError(f"{self.chain} 全部 RPC 端点均限流或配额耗尽") from last_error
+            raise RpcQuotaExhaustedError(f"{self.chain} 全部 RPC 端点的计划额度均已用完") from last_error
+        if any_limited:
+            raise RpcRateLimitedError(f"{self.chain} 全部 RPC 端点均被拒绝（含短时限速）") from last_error
         raise ChainAdapterError(f"{self.chain} 全部 RPC 端点均失败") from last_error
 
     def _rpc(self, method: str, params: list[Any]) -> Any:
@@ -508,9 +560,19 @@ def _block_param(block: BlockRef) -> str:
     return hex(block)
 
 
-def _is_http_429(exc: Exception) -> bool:
+def _http_limit(provider: str, exc: Exception) -> LimitSignal | None:
+    """历史路径（web3）抛出的 HTTP 错误是不是限速或额度耗尽。"""
     response = getattr(exc, "response", None)
-    return getattr(response, "status_code", None) == 429
+    status = getattr(response, "status_code", None)
+    if status != 429:
+        return None
+    text = str(getattr(response, "text", "") or "")
+    headers = getattr(response, "headers", None) or {}
+    return classify_limit(provider, text, http_status=429, retry_after_header=headers.get("Retry-After"))
+
+
+def _limit_status(signal: LimitSignal) -> CallStatus:
+    return CallStatus.QUOTA_EXHAUSTED if signal.kind is LimitKind.QUOTA_EXHAUSTED else CallStatus.RATE_LIMITED
 
 
 def _parse_log(raw: dict[str, Any]) -> RawLog:

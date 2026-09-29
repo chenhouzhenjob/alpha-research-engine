@@ -19,7 +19,8 @@ class CallStatus(StrEnum):
     """一次外部调用的结果分类。"""
 
     OK = "ok"  # 调用成功返回
-    RATE_LIMITED = "rate_limited"  # 被限流或配额耗尽（HTTP 429 等）
+    RATE_LIMITED = "rate_limited"  # 被短时限速（每秒请求数、每秒 CU、并发），稍后即可恢复
+    QUOTA_EXHAUSTED = "quota_exhausted"  # 计划额度用完（月度 CU、日请求上限），下个计费周期才恢复
     ERROR = "error"  # 其他失败（网络错误、服务端错误、返回无法解析等）
 
 

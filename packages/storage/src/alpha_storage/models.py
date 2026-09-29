@@ -330,7 +330,7 @@ class ExternalCallLedgerRow(Base):
     provider: Mapped[str] = mapped_column(String(32), primary_key=True)  # nodereal/publicnode/sourcify/...
     method: Mapped[str] = mapped_column(String(64), primary_key=True)  # RPC 方法名或接口路径
     job_ref: Mapped[str] = mapped_column(String(64), primary_key=True, server_default="")  # 空串表示无关联
-    status: Mapped[str] = mapped_column(String(16), primary_key=True)  # ok/rate_limited/error
+    status: Mapped[str] = mapped_column(String(16), primary_key=True)  # ok/rate_limited/quota_exhausted/error
     call_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
     est_cu: Mapped[int | None] = mapped_column(BigInteger)  # 估算 CU；有单价未知的调用时为 NULL
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
