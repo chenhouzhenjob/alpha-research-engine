@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import RiskFlag, TokenMeta
+from .models import PositionKind, PositionRef, RiskFlag, TokenMeta
 from .risk import classify_token
 
 
@@ -39,6 +39,15 @@ class DecodeContext:
     # 这条链的包装原生币（WBNB、WETH）地址，来自链画像；路由、仓位管理合约替用户包装或解包时，
     # 家族靠它识别 Deposit / Withdrawal。None 表示链没有包装原生币
     wrapped_native: str | None = None
+    # 实例键 → 该实例估值器能估的持仓形态（来自 `PositionValuer.position_kinds`）；事件的持仓属于这里列出的
+    # 形态时覆盖等级升到 T3。空映射表示不判断可估值性，家族事件停在 T2
+    valuable_positions: Mapping[str, frozenset[PositionKind]] = field(default_factory=dict)
+
+    def is_valuable(self, instance_key: str | None, position_key: str | None) -> bool:
+        """某个持仓能不能按家族估值。实例或持仓键缺失时为 False。"""
+        if instance_key is None or position_key is None:
+            return False
+        return PositionRef.kind_of(position_key) in self.valuable_positions.get(instance_key, frozenset())
 
     def risk_of(self, asset: str) -> RiskFlag:
         """资产的风险标记；没有元数据的 token 视为 normal（没有证据不下结论）。"""

@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from eth_abi import encode as abi_encode
 from eth_utils import keccak
@@ -41,6 +42,10 @@ def _uint(raw: bytes, word: int = 0) -> int:
 
 @dataclass(frozen=True)
 class CompoundV2Valuer:
+    # 存款凭证（vToken 份额）、负债、待领奖励
+    position_kinds: ClassVar[frozenset[PositionKind]] = frozenset(
+        {PositionKind.SHARE, PositionKind.DEBT, PositionKind.CLAIMABLE}
+    )
     instance_key: str
     comptroller: str
     native_market: str | None

@@ -1,4 +1,4 @@
-"""第一段通用解码（T0）：用三条链的 62 个金标准样本验证资产流动、gas 模型、系统交易、风险标记和兜底。"""
+"""第一段通用解码（T0）：用三条链的 64 个金标准样本验证资产流动、gas 模型、系统交易、风险标记和兜底。"""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _native_net(flows, subject: str) -> int:
 
 
 def test_sample_set_is_complete():
-    assert len(ALL) == 62
+    assert len(ALL) == 64
     assert NEEDS_INFERENCE <= set(ALL)
 
 
@@ -233,3 +233,17 @@ def test_contract_identified_as_unknown_is_still_reported_as_unknown():
     ctx = s.context(identities={emitter: ContractIdentity(emitter, "unknown")})
     d = decode_evm_tx(s.tx, s.receipt, s.subject, ctx, s.rules)
     assert emitter in d.unknown_contracts
+
+
+def test_target_logs_of_third_party_tx_are_out_of_scope():
+    """别人发起的交易里，交易目标发出、但没提到钱包的日志不属于钱包的交互（批量打款合约一笔上千条）。"""
+    s = load("bsc/generic/misc_checkin")
+    emitter = s.tx.to_address
+    own = decode_evm_tx(s.tx, s.receipt, s.subject, s.context(), s.rules)
+    assert emitter in own.unknown_contracts
+    # 换一个既不是发起人、日志里也没提到的钱包视角：同一笔交易的目标日志不再算它的交互
+    bystander = "0x" + "1" * 40
+    assert all("0x" + "0" * 24 + bystander[2:] not in lg.topics for lg in s.receipt.logs)
+    other = decode_evm_tx(s.tx, s.receipt, bystander, s.context(), s.rules)
+    assert emitter not in other.unknown_contracts
+    assert not any(w.code is WarningCode.ABI_MISSING for w in other.warnings)

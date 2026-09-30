@@ -196,6 +196,17 @@ class PositionRef:
         """持仓键 `<chain>:<instance_key>:<kind>:<id>`，写进事件的 `position_key`。"""
         return f"{self.chain}:{self.instance_key}:{self.kind.value}:{self.id}"
 
+    @staticmethod
+    def kind_of(key: str) -> PositionKind:
+        """从持仓键取出持仓形态（键的第三段）。
+
+        @raises ValueError 键不是 `<chain>:<instance_key>:<kind>:<id>` 格式，或形态不在 PositionKind 里
+        """
+        parts = key.split(":", 3)
+        if len(parts) != 4:
+            raise ValueError(f"持仓键格式不对：{key}")
+        return PositionKind(parts[2])
+
 
 @dataclass(frozen=True)
 class NormalizedEvent:
@@ -227,6 +238,7 @@ class WarningCode(StrEnum):
 
     INTERNAL_UNAVAILABLE = "internal_unavailable"  # 数据源没给内部交易，而这笔交易很可能有原生币内部转移
     ABI_MISSING = "abi_missing"  # 未知合约的日志找不到能对上的 ABI，只能保留资产流动
+    UNRECOGNIZED_CALL = "unrecognized_call"  # 调用了已识别协议的合约，但方法语义没有登记；资产流动按兜底记录，不猜语义
     INFERENCE_MISMATCH = "inference_mismatch"  # 推断出的原生币在数据源给的内部交易里找不到对应记录，没有补流水
     MALFORMED_LOG = "malformed_log"  # 签名是转账或授权，但格式不符合标准，无法解析（资产流动可能不完整）
 

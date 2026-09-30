@@ -18,10 +18,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isqrt
+from typing import ClassVar
 
 from eth_abi import encode as abi_encode
 from eth_utils import keccak
 
+from ...decoding.models import PositionKind
 from ...valuation.models import Component, ReadResults, StateRead, UnderlyingAmount, Valuation, ValuationRequest
 
 
@@ -54,6 +56,7 @@ def protocol_fee_liquidity(total_supply: int, reserve0: int, reserve1: int, k_la
 
 @dataclass(frozen=True)
 class UniswapV2Valuer:
+    position_kinds: ClassVar[frozenset[PositionKind]] = frozenset({PositionKind.SHARE})  # LP 份额
     instance_key: str
     factory: str
     fee_numerator: int

@@ -496,6 +496,22 @@
       "tx_hash": "0x0914871f3f7580cf7d7b8e04d87dde12dd2989795b0fe9cb349fe1e035d596ad",
       "subject_wallet": "0xc6a304cad64c1c6922fbf320eb93ebc4307b4321",
       "note": "带转账税的 token 换 ETH：路由解包两次，只有钱包转出 token 之后的第一次属于钱包"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "call_lifi_swap",
+      "chain": "bsc",
+      "tx_hash": "0x0df2e39b74d9249a6f494a4d83c58f6ba945cf23aab4cd3b80f40669f1da4f4e",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "callLiFi（0x849ce572）同链交换：付出 BNB、收到 USDT，方法不在交换列表里"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "unrecognized_one_sided",
+      "chain": "bsc",
+      "tx_hash": "0x483a8a5b68a13195334b9d9a0082b1f46fa22da8cb8324935f35f4a83e9c2035",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "0x3ecba7f8（签名查不到）只有 USDT 转出，像跨链"
     }
   ]
 }

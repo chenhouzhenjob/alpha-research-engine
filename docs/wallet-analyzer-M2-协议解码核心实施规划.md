@@ -9,6 +9,7 @@
 |---|---|---|
 | 1b 多链配套 | ✅ 2026-09-29 | `Chain` 加 `ethereum`、`base`，新增 `ChainSpec`/`CHAIN_SPECS`；`build_evm_adapter(chain)`，`build_bsc_adapter` 改为调用它（行为不变）；`TxReceipt.l1_fee`、`TxInfo.tx_type/mint`；`chain_txs` 补 `input_data`、`tx_type`、`mint_raw`、`l1_fee`（迁移 `0007_chain_tx_fields`，`contract_registry` 顺延为 `0008`），已同步 `SCHEMA.md` |
 | 1c 以太坊、Base 样本 | ✅ 2026-09-29 | 以太坊 10、Base 10（含 `op_stack` gas、L1 存款交易、带转账税 token）；全部 62 个样本升级到格式 2（带 `tx_type`、`mint`、`l1_fee`），BSC 的挑选结果不变。以太坊、Base 的样本要求发起人在该区块只有这一笔交易，62 个样本的余额差全部可归因 |
+| 验收补齐 | ✅ 2026-09-30（未提交） | 冒烟后对照验收标准补上三项：① 聚合器每笔成功交易要么归并出交换、要么带告警（新增 `unrecognized_call`，两边都有资产流动的非交换方法也按交换归并，补样本 `call_lifi_swap`、`unrecognized_one_sided`）；② T3：估值器声明 `position_kinds`，`DecodeContext.valuable_positions` 由 runtime 填入，持仓可估值的 T2 事件升到 T3；③ 冒烟接入 M1 的 ABI 来源统计通用 ABI 解码覆盖率，并据此收窄日志范围：别人发起的交易里，交易目标的日志只算提到钱包的 |
 | 13 端到端冒烟 | ✅ 2026-09-29（未提交） | 见下方"端到端冒烟结果" |
 | 14 设计文档 | ✅ 2026-09-29（未提交） | 设计文档 12.1（M2 实际范围与差异）、6.1（contract_registry 字段）、10.1（protocols 实际目录结构）、10.4（新增链的验收标准、架构测试） |
 | 12 识别第一层 + contract_registry | ✅ 2026-09-29（未提交） | `identification/{plans,runner}.py`：实例角色、已有表（本地 CREATE2 校验、零 RPC）、CREATE2 校验（批量读盐的组成部分）、字节码判断 EOA；`discover_registries`（Venus getAllMarkets）。V2 / V3 / Venus 家族各自声明发现方式（`ProtocolFamily.discovery`）。`alpha_core.ports.ContractRecord / ContractRegistryStore`、`contract_registry` 表（迁移 `0008`，往返验证通过）、仓储（人工确认的记录不被覆盖）、`DbContractRegistryStore`，已同步 `SCHEMA.md`。测试里 Venus 市场改走正式的 `discover_registries` |
@@ -39,7 +40,7 @@
   - 资产流水的 `kind` 只表示资产类型（原生币、ERC20、ERC721、ERC1155、gas），来源由 `source` 表示（交易字段、日志、内部交易、推断、系统交易），两者正交；原先的 `internal`、`inferred_native` 取值合并进 `native` + `source`；
   - 推断钩子不只推断原生币：WBNB/WETH 的 `Deposit` 不产生 `Transfer` 日志，钱包收到的包装币也要由 `wrapped_native` 家族推断；
   - 别人发起的交易里也会出现钱包作为 owner 的 `Approval`（`transferFrom` 更新额度、代提交的 `permit`），授权事件带 `initiated_by_subject` 标明；
-  - 通用 ABI 解码只处理钱包交互范围内的日志（由交易 `to` 发出，或 topic 带钱包地址），不解聚合器路由内部的几百条池子日志；
+  - 通用 ABI 解码只处理钱包交互范围内的日志（钱包发起的交易里由交易 `to` 发出，或 topic 带钱包地址；别人发起的交易里，交易目标的日志只算提到钱包的，冒烟里一笔批量打款就有上千条关于其他收款人的日志），不解聚合器路由内部的几百条池子日志；
   - 只有事件签名时，indexed 位置按"前 N 个"猜测并做逐字节重编码校验，但 indexed 不在最前面时仍可能得到形式成立、含义错误的结果，所以这类结果标为 `signature_guess`，只作线索；
   - 地址投毒样本里，真 USDT 的 0 数量 `transferFrom` 和仿冒 USDT 的"转出"记录出现在同一笔交易，风险判断按 token 逐条进行。
 - 步骤 4 对设计的调整：
@@ -85,19 +86,20 @@
   - 识别的执行（读链、查字节码）通过注入的 reader、code_reader 完成，与估值共用 `runtime.multicall_reader`；发现方式由家族声明成纯数据（`identification/plans.py`），框架执行；
   - 注册表发现（"一次列出全部"）和按地址识别分开：`discover_registries` 由调用方按链执行一次，`identify` 只处理给定的地址；
   - 同一个地址可能同时满足 V2 和 V3 的读取（都有 token0 / token1），以 CREATE2 是否对得上为准；V2 交易对没有 `fee()`，读取失败即不属于 V3。
-- M2 暴露的 M1 遗留问题（已单独立项）：链适配器把所有 HTTP 429 都当成"配额耗尽"直接放弃，但 Ankr 的 429 是每秒限速（"retry in 10s"），几秒后就恢复，和 NodeReal 的月额度耗尽不是一回事。冒烟脚本暂时自己退避重试。
+- M2 暴露的 M1 遗留问题（已修复）：链适配器曾把所有 HTTP 429 都当成"配额耗尽"直接放弃，但 Ankr 的 429 是每秒限速（"retry in 10s"），几秒后就恢复，和 NodeReal 的月额度耗尽不是一回事。现在按厂商文案分成短时限速（同一端点退避重试）和额度耗尽（不重试），冒烟脚本不再自己重试。
 
-## 端到端冒烟结果（基准钱包，2026-09-29）
+## 端到端冒烟结果（基准钱包，2026-09-29，2026-09-30 验收补齐后重跑）
 
 `scripts/oneoff/2026-09-29_m2-decode-smoke.py`：Ankr 拉交易清单 → 抓交易和回执 → token 元数据 → 注册表发现 + 第一层识别（写本地库 contract_registry）→ 逐笔解码 → 统计。
 
 | 项目 | 结果 |
 |---|---|
 | 和钱包有关的交易 | 3908 笔（钱包发出 2399，其余是别人发起、落到钱包上的，例如投毒） |
-| 事件 | 9358 条，**未认领流水 0 条**，全部通过分类表校验 |
-| 家族分布 | 兜底 5525、`dex_aggregator` 3069、`uniswap_v3_like` 764 |
-| 覆盖等级（有资产流动的事件） | T2 3833、T0 4235（T0 里 2378 条是 gas） |
-| 聚合器 | 成功交换 1554 笔：1523 笔两条腿齐全；22 笔换成原生币只有付出腿（告警 `internal_unavailable`）；9 笔两者都不是（方法不在交换选择器里，或进出相抵） |
+| 事件 | 9647 条（含 289 条 `informational/decoded_log`），**未认领流水 0 条**，全部通过分类表校验 |
+| 家族分布 | 兜底 5810、`dex_aggregator` 3073、`uniswap_v3_like` 764 |
+| 覆盖等级（有资产流动的事件） | T3 764（V3 仓位事件全部可估值）、T2 3073（聚合器交换，没有持仓，停在 T2）、T0 4231（其中约 2400 条是 gas） |
+| 聚合器 | 成功交易 1554 笔，**全部有交换或告警**：1525 笔两条腿齐全（含 `callLiFi`、`callQuant` 同链交换）；23 笔换成原生币只有付出腿（`internal_unavailable`）；6 笔单边、方法不是交换（`unrecognized_call`，4 笔 `0x3ecba7f8` 像跨链，USDT 只出或只进）；两样都没有的 0 笔 |
+| 通用 ABI 解码 | 未识别合约 86 个，钱包交互范围内的候选日志 308 条，解出 289 条（**93.8%**；合约 ABI 136、签名猜测 153）。查询：地址 75 查到 / 11 没有（Sourcify），事件 topic0 62 查到 / 8 没有（openchain → 4byte），结果缓存在 `abi_cache`。没解出的 19 条：12 条既没有 ABI 也查不到签名，7 条有 ABI 或签名但参数布局对不上 |
 | V3 NPM | 成功交易 254 笔，254 笔都由家族解码 |
 | 识别 | 1285 个地址：pool 73、pair 5、market 2、实例角色 3、EOA 13、unknown 1188 |
 | 风险标记 | `receive/spam` 415 条、`receive/airdrop` 14 条 |
@@ -105,16 +107,18 @@
 | 原生币总账 | 解码净额 −74.474 BNB，当前余额 0.021 BNB，**缺口 74.495 BNB**（与 M0 用 Ankr 估算的 74.49 BNB 一致） |
 
 **缺口归因**：
-- 聚合器里没归并出两条腿的 31 笔，逐笔用区块前后余额差核对（29 笔可归因），合计只解释 **1.80 BNB（2.4%）**；
+- 聚合器里没归并出两条腿的 29 笔，逐笔用区块前后余额差核对（27 笔可归因），合计只解释 **1.80 BNB（2.4%）**；
 - 按 24 个时间点比较"解码累计净额"和"链上余额"，缺口集中在两段：前 170 笔交易（+34.5 BNB）和第 1529~2379 笔（约 +34 BNB），其余时段几乎不变；
 - 这两段里原生币流出的主力是钱包直接转给 `0x2bc6a374…`（6 笔 18.8 BNB）、`0xcdd97d05…`（10 笔 49.4 BNB）等地址的普通转账，这些流出都正确解码了；而余额随后被补回来的那部分 BNB **不在钱包的任何一笔交易里**：钱包交易清单里的外部转入只有 89.8 BNB，token 转账清单也没有。它只能是别人的合约通过内部调用转给钱包的（例如交易所的批量提币合约），这种交易不在钱包身上留下任何日志；
 - 结论：约 72.7 BNB 的缺口来自"只有内部调用、没有日志"的转入，不是解码问题，只有接入内部交易数据源（M0 补测 NodeReal，M1 步骤 6b）才能补上。
 
 **冒烟中发现并修复的问题**：
 - 识别结果为 `unknown` / `eoa` 的合约被当成"已识别"，不再报为未知合约、也不尝试 ABI 解码。改为只有识别出家族的才算已识别（补了测试）；
-- Ankr 的每秒限速被链适配器当成额度耗尽直接放弃，已修复（见实施中的新发现），冒烟途中遇到一次限速，按提示等 10 秒后重试成功。
+- Ankr 的每秒限速被链适配器当成额度耗尽直接放弃，已修复（见实施中的新发现），冒烟途中遇到一次限速，按提示等 10 秒后重试成功；
+- 聚合器有 9 笔既没有交换也没有告警（验收要求二者必有其一）：`callOneInch` 只有付出腿却没触发旧的告警条件、`callLiFi` / `callQuant` 两边都有却因方法不在交换选择器里被跳过、`0x3ecba7f8` 单边流动。改成按净额分三种处理（见 5.8）；
+- 第一次统计 ABI 解码覆盖率只有 52%：4 笔别人发起的批量打款（交易目标 `0x34aae8e3…`，每笔 1100 多条日志）的日志全被算进钱包的交互范围，它们几乎都是关于其他收款人的。收窄范围后误报的 `abi_missing` 从 342 条降到 18 条。
 
-未识别合约里交易数最多的前几个：`0x317cd61f…`（44 笔，领取类 `claimV2`）、`0x8ac78419…`（35）、`0x3d64b91e…`（30）、`0x247fe62d…`（25）、`0x007200c6…`（17，签到 `checkIn()`）。它们是 M4 LLM 识别和第二阶段扩展家族的首批对象。
+未识别合约里交易数最多的前几个：`0x317cd61f…`（44 笔，领取类 `claimV2`）、`0x3d64b91e…`（30）、`0x247fe62d…`（25）、`0x007200c6…`（17，签到 `checkIn()`）、`0x97f0ed63…`（13）。它们是 M4 LLM 识别和第二阶段扩展家族的首批对象。
 
 ## 1. 目标与原则
 
@@ -540,9 +544,12 @@ class ProtocolFamily(Protocol):
 - 利息：负债在两次事件之间会增长，但不产生事件。解码层不生成利息事件，由 M3 用"估值时的负债 − 事件累计的负债"算出利息。
 
 **`dex_aggregator`**
-- 触发条件：`tx.to` 是实例登记的 `router`，选择器在 `options.swap_selectors` 里，交易成功，且 `tx.from == subject_wallet`；
-- 归并：调用 `trade_from_net`，风险 token 不参与归并；
-- 只有付出腿、没有收到腿时，记告警 `internal_unavailable`，事件带 `extra.incomplete=true`；
+- 触发条件：`tx.to` 是实例登记的 `router`，交易成功，且 `tx.from == subject_wallet`；
+- 归并：调用 `trade_from_net`，风险 token 不参与归并；事件的 `extra.selector` 记调用的方法；
+- 按净额分三种（验收要求每笔成功的聚合器交易要么归并出交换、要么带告警）：
+  - 有付出也有收到：不管方法是不是登记的交换方法，都归并成交换（基准钱包的 `callLiFi`、`callQuant` 同链交换）；
+  - 只有付出、方法在 `options.swap_selectors` 里：记告警 `internal_unavailable`，事件带 `extra.incomplete=true`；
+  - 只有单边、方法不是交换：用途不明（像跨链，USDT 只出或只进），不认领、不猜语义，资产流动由兜底记录，记告警 `unrecognized_call`；
 - 实例的协议名先写 `unknown-aggregator-b300`。
 
 ### 5.9 token 风险标记（`decoding/risk.py`，纯函数）
@@ -661,6 +668,7 @@ stateDiagram-v2
 写入规则：`confirmed` 的记录不会被任何自动流程覆盖；`auto` 的记录可以被新的自动结果刷新（例如实例 YAML 的角色地址变了）。
 
 **覆盖等级**（每条事件）：T0 → T1（发出合约有识别结果）→ T2（家族解码，带 `position_key`；交换事件也算）→ T3（对应的持仓能估值）。
+T3 的判定：每个估值器声明自己能估的持仓形态（`PositionValuer.position_kinds`，例如 V3 是 `nft`，Venus 是 `share`、`debt`、`claimable`），`runtime.decode_context` 把它们放进 `DecodeContext.valuable_positions`；管线在 finalize 之后把持仓属于这些形态的 T2 事件升到 T3。没有持仓键的事件（交换、授权）停在 T2。
 
 解码本身无状态。跨交易的状态（挂起本金、负债利息）由 M3 处理。
 
@@ -732,7 +740,7 @@ stateDiagram-v2
 | `uniswap_v3_like` | mint（付 token）、multicall 退出（decrease + collect）、单独 collect | 基准钱包 |
 | `uniswap_v3_like` | 付 BNB 开仓、multicall 退出含 `unwrapWETH9`（验证推断钩子） | 链上公开交易（基准钱包没有这两种） |
 | `compound_v2_like` | 存入 / 取出（vUSDT、vBNB 各一）、借款 / 还款（vBNB 借款要验证推断钩子）、替别人还款、清算（借款人视角和清算人视角）、领 XVS | 链上公开交易，从各市场的事件日志里挑 |
-| `dex_aggregator` | 四种选择器各一笔、换成 BNB（缺口告警） | 基准钱包 |
+| `dex_aggregator` | 四种选择器各一笔、换成 BNB（缺口告警）、非交换方法的两边交换（`callLiFi`）、非交换方法的单边流动（`0x3ecba7f8`） | 基准钱包 |
 
 **以太坊和 Base 的样本**（链上公开交易）：
 
@@ -818,3 +826,5 @@ stateDiagram-v2
 
 1. **基准答案**：当年人工分析的净投入、盈亏、年化、那笔伪装成 dust 的转账（交易哈希）、持仓区间。M2 不依赖它们，但那笔 dust 转账最好放进通用样本；M3 的验收要用全部基准答案；
 2. **`0xb300000b…` 是哪家聚合器**（不知道的话先用 `unknown-aggregator-b300`）。
+
+M2 已完成，这两项仍未确定，已转入 M3 实施规划的待定需求（10.1 基准答案、10.7 聚合器身份），在那里跟踪。

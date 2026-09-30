@@ -6,7 +6,8 @@
 2. 批量抓交易和回执，缓存在系统临时目录（不进仓库），重跑时不重复抓；
 3. 读取相关 token 的元数据（风险标记要用）；
 4. 协议识别：注册表发现 + 第一层识别，结果写进本地库的 contract_registry（需要已执行迁移 0008）；
-5. 逐笔解码；
+5. 逐笔解码；第一遍解出的未识别合约，用 M1 的 ABI 来源（Sourcify 按地址、openchain → 4byte 按 topic0）
+   查 ABI 和事件签名（结果缓存在本地库 abi_cache），放进解码上下文后再解一遍，统计通用 ABI 解码的覆盖；
 6. 输出统计：事件、家族、覆盖等级分布，告警，未识别合约排行，聚合器交换归并情况，原生币总账缺口，
    钱包全部 V3 仓位的估值。
 
@@ -24,19 +25,23 @@ import os
 import re
 import tempfile
 from collections import Counter
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import requests
 from alpha_chains.erc20 import read_metadata_batch
 from alpha_chains.factory import build_evm_adapter, rpc_urls_env
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
+from alpha_core.errors import DataSourceUnavailableError
+from alpha_core.ports import AbiKeyType, AbiStatus
 from alpha_core.types import Chain
+from alpha_datasources.abi_sources import default_resolver
+from alpha_protocols.decoding.evm.flows import TOKEN_STANDARD_TOPICS
 from alpha_protocols.decoding.models import NATIVE, PositionKind, PositionRef, TokenMeta, leaf_flows
 from alpha_protocols.identification.runner import discover_registries, identify
 from alpha_protocols.runtime import decode_context, decode_tx, identities_from_records, multicall_reader, value
 from alpha_protocols.valuation.models import Component, ValuationRequest
-from alpha_storage.stores import DbContractRegistryStore
+from alpha_storage.stores import DbAbiStore, DbContractRegistryStore
 from dotenv import load_dotenv
 
 WALLET = "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be"
@@ -91,6 +96,52 @@ def fetch(adapter, hashes: list[str], refresh: bool) -> dict[str, tuple[TxInfo, 
     return result
 
 
+def resolve_abis(data, decoded, ctx):
+    """为第一遍解码报出的未识别合约查 ABI（按地址）和它们相关日志的事件签名（按 topic0）。
+
+    候选日志的口径和解码框架一致：未识别合约发出、不是 token 标准事件，且是钱包发起的交易里交易目标发出的，
+    或 topic 里带钱包。
+    某个来源临时不可用时这一条记为 unavailable，不中断冒烟。
+
+    @return (统计, 带上 ABI 和签名的新解码上下文)
+    """
+    unknown = {a for d in decoded.values() for a in d.unknown_contracts}
+    wallet_topic = "0x" + "0" * 24 + WALLET[2:]
+    candidates = [
+        (tx.tx_hash, lg)
+        for tx, rc in data.values()
+        if rc.status != 0
+        for lg in rc.logs
+        if lg.address in unknown
+        and lg.topics
+        and lg.topics[0] not in TOKEN_STANDARD_TOPICS
+        and ((tx.from_address == WALLET and lg.address == (tx.to_address or "")) or wallet_topic in lg.topics[1:])
+    ]
+    resolver = default_resolver(store=DbAbiStore())
+    status: Counter = Counter()
+
+    def lookup(key_type: AbiKeyType, key: str):
+        try:
+            entry = resolver.resolve(Chain.BSC, key_type, key)
+        except DataSourceUnavailableError:
+            status[f"{key_type.value}:unavailable"] += 1
+            return None
+        status[f"{key_type.value}:{entry.status.value}"] += 1
+        return entry.abi if entry.status is AbiStatus.SUCCESS else None
+
+    topics = sorted({lg.topics[0] for _, lg in candidates})
+    print(f"查 ABI：{len(unknown)} 个未识别合约，{len(topics)} 个事件 topic0", flush=True)
+    abis = {a: abi for a in sorted(unknown) if (abi := lookup(AbiKeyType.ADDRESS, a))}
+    sigs = {t: tuple(sig) for t in topics if (sig := lookup(AbiKeyType.EVENT, t))}
+    stats = {
+        "unknown_contracts": len(unknown),
+        "candidate_logs": len(candidates),
+        "event_topics": len(topics),
+        "lookups": dict(status),
+    }
+    return stats, candidates, replace(ctx, contract_abis=abis, event_signatures=sigs)
+
+
 def main() -> None:
     load_dotenv(".env")
     parser = argparse.ArgumentParser()
@@ -143,8 +194,38 @@ def main() -> None:
         Chain.BSC, tokens=token_meta, extra_identities=identities_from_records([*records.values(), *registry_records])
     )
 
-    # 5. 解码
+    # 5. 解码：第一遍找出未识别合约，查 ABI 和事件签名后再解一遍
     decoded = {h: decode_tx(Chain.BSC, tx, rc, WALLET, ctx=ctx) for h, (tx, rc) in data.items()}
+    abi_stats, candidates, ctx = resolve_abis(data, decoded, ctx)
+    decoded = {h: decode_tx(Chain.BSC, tx, rc, WALLET, ctx=ctx) for h, (tx, rc) in data.items()}
+    abi_stats["decoded_logs"] = sum(
+        1 for d in decoded.values() for e in d.events if e.event_subtype.value == "decoded_log"
+    )
+    abi_stats["coverage"] = (
+        abi_stats["decoded_logs"] / abi_stats["candidate_logs"] if abi_stats["candidate_logs"] else None
+    )
+    # 没解出来的候选日志按原因分：合约 ABI 和签名都没有 / 有但解不开（参数布局对不上）
+    done = {
+        (d.tx_hash, int(e.extra["log_index"]))
+        for d in decoded.values()
+        for e in d.events
+        if e.event_subtype.value == "decoded_log"
+    }
+    left = [(h, lg) for h, lg in candidates if (h, lg.log_index) not in done]
+    abi_stats["undecoded_reasons"] = dict(
+        Counter(
+            "no_abi_no_signature"
+            if lg.address not in ctx.contract_abis and lg.topics[0] not in ctx.event_signatures
+            else "abi_or_signature_mismatch"
+            for _, lg in left
+        )
+    )
+    abi_stats["undecoded_top"] = Counter(f"{lg.address}:{lg.topics[0][:10]}" for _, lg in left).most_common(8)
+    abi_stats["by_source"] = dict(
+        Counter(
+            e.extra["abi_source"] for d in decoded.values() for e in d.events if e.event_subtype.value == "decoded_log"
+        )
+    )
 
     # 6. 统计
     events = [e for d in decoded.values() for e in d.events]
@@ -165,6 +246,14 @@ def main() -> None:
         if {e.event_subtype.value for e in d.events if e.family == "dex_aggregator"} == {"spend", "receive"}
     )
     agg_incomplete = sum(1 for d in agg if any(e.extra.get("incomplete") for e in d.events))
+    # 验收：每笔成功的聚合器交易要么归并出交换，要么带告警（不能静默漏掉）
+    agg_silent = [
+        d.tx_hash
+        for d in agg
+        if not any(e.family == "dex_aggregator" for e in d.events)
+        and not any(w.code.value in ("unrecognized_call", "internal_unavailable") for w in d.warnings)
+    ]
+    agg_unrecognized = sum(1 for d in agg if any(w.code.value == "unrecognized_call" for w in d.warnings))
     npm = [d for h, d in decoded.items() if data[h][0].to_address == NPM and d.succeeded]
     npm_by_family = sum(1 for d in npm if any(e.family == "uniswap_v3_like" for e in d.events))
 
@@ -230,7 +319,15 @@ def main() -> None:
         "coverage_tiers_of_flow_events": dict(tiers),
         "warnings": dict(warnings),
         "unknown_contracts_top": unknown.most_common(15),
-        "aggregator": {"successful_swaps": len(agg), "two_legs": agg_two_legs, "incomplete_to_native": agg_incomplete},
+        "generic_abi_decoding": abi_stats,
+        "aggregator": {
+            "successful_swaps": len(agg),
+            "two_legs": agg_two_legs,
+            "incomplete_to_native": agg_incomplete,
+            "unrecognized_call": agg_unrecognized,
+            "silent": len(agg_silent),
+            "silent_examples": agg_silent[:5],
+        },
         "npm": {"successful_txs": len(npm), "decoded_by_family": npm_by_family},
         "native_ledger": {
             "decoded_net_wei": native_net,

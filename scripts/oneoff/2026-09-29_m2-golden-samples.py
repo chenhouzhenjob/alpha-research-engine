@@ -777,15 +777,36 @@ def cmd_metadata(ankr: Ankr) -> None:
 def main() -> None:
     load_dotenv(".env")
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["select", "fetch", "metadata"])
+    parser.add_argument("command", choices=["select", "fetch", "metadata", "add"])
     parser.add_argument("--refresh", action="store_true", help="fetch 时覆盖已存在的样本文件（样本格式升级时用）")
     parser.add_argument("--chains", default="bsc,ethereum,base", help="select 时重挑哪些链，逗号分隔")
+    parser.add_argument("--case", help="add：样本 <chain>/<family>/<case>")
+    parser.add_argument("--tx", help="add：交易哈希")
+    parser.add_argument("--subject", help="add：主体钱包")
+    parser.add_argument("--note", default="", help="add：挑选说明")
     args = parser.parse_args()
     ankr = Ankr()
     if args.command == "select":
         cmd_select(ankr, [c.strip() for c in args.chains.split(",") if c.strip()])
     elif args.command == "metadata":
         cmd_metadata(ankr)
+    elif args.command == "add":
+        # 在清单里追加一个指定的样本（不重挑已有样本），之后执行 fetch、metadata
+        chain, family, case = args.case.split("/")
+        manifest = json.loads(MANIFEST.read_text())
+        entry = {
+            "family": family,
+            "case": case,
+            "chain": chain,
+            "tx_hash": args.tx.lower(),
+            "subject_wallet": args.subject.lower(),
+            "note": args.note,
+        }
+        manifest["cases"] = [
+            c for c in manifest["cases"] if (c["chain"], c["family"], c["case"]) != (chain, family, case)
+        ] + [entry]
+        MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+        print(f"  ✓ 追加 {args.case}")
     else:
         cmd_fetch(ankr, refresh=args.refresh)
 

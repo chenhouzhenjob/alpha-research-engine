@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
-from ..decoding.models import PositionRef
+from ..decoding.models import PositionKind, PositionRef
 
 
 @dataclass(frozen=True)
@@ -67,6 +67,8 @@ class PositionValuer(Protocol):
     """一个实例的估值器，由家族按实例部署构造（`ProtocolFamily.valuer`）。"""
 
     instance_key: str
+    # 这个估值器能估的持仓形态；解码时据此把对应持仓的事件标成 T3（可估值）
+    position_kinds: ClassVar[frozenset[PositionKind]]
 
     def plan(self, request: ValuationRequest, reads: ReadResults) -> list[StateRead]:
         """根据已有的读取结果，声明还需要读什么；不再需要时返回空列表。第一轮 `reads` 为空。"""

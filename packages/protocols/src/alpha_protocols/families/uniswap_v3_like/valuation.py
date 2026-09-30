@@ -12,12 +12,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from eth_abi import decode as abi_decode
 from eth_abi import encode as abi_encode
 from eth_utils import keccak
 
 from ...decoding.evm.rules import Create2Variant, create2_address
+from ...decoding.models import PositionKind
 from ...valuation.models import Component, ReadResults, StateRead, UnderlyingAmount, Valuation, ValuationRequest
 from .math import amounts_for_liquidity, fee_growth_inside, fees_owed
 
@@ -58,6 +60,7 @@ def _position(raw: bytes) -> _Position:
 
 @dataclass(frozen=True)
 class UniswapV3Valuer:
+    position_kinds: ClassVar[frozenset[PositionKind]] = frozenset({PositionKind.NFT})  # 仓位 NFT
     instance_key: str
     position_manager: str
     pool_deployer: str  # 执行 CREATE2 的合约：PancakeSwap 为 pool_deployer，Uniswap 为 factory

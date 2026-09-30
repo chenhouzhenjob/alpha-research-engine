@@ -1,6 +1,8 @@
 # 基准钱包使用的 DEX 聚合器（EIP-2535 Diamond，Sourcify 已验证合约名 Diamond），具体是哪家尚未确认，
 # 协议名先用地址前缀。交换方法的签名来自 openchain：proxySwapV2、proxySwap、callOneInch；0x810c705b 查不到签名，
-# 金标准样本（swap_810c705b）是一笔 MITO 换 USDT 的交换，归为交换；步骤 13 的冒烟会统计基准钱包里全部这类交易是否都有两条腿。
+# 金标准样本（swap_810c705b）是一笔 MITO 换 USDT 的交换，归为交换。
+# 路由还有别的方法：callLiFi（0x849ce572）、callQuant（0x3166c37c）、0x3ecba7f8（查不到签名），基准钱包里既有同链交换
+# （两边都有资产流动，按交换归并），也有 USDT 只出或只进（像跨链），所以不登记为交换方法，单边时告警 unrecognized_call。
 instance_key: aggregator-b300
 family: dex_aggregator
 protocol: unknown-aggregator-b300

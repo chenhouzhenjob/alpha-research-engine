@@ -74,6 +74,7 @@ def decode_context(
         contract_abis=dict(contract_abis or {}),
         event_signatures=dict(event_signatures or {}),
         wrapped_native=chain_profiles()[chain].wrapped_native,
+        valuable_positions={k: v.position_kinds for k, v in valuers_for(chain, registry).items()},
     )
 
 

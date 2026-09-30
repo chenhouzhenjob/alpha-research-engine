@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
 
@@ -21,7 +22,15 @@ from ..claims import FlowLedger
 from ..context import DecodeContext
 from ..events import EventDraft, finalize
 from ..fallback import fallback_events, informational_event
-from ..models import DecodedTx, DecodeWarning, EventSubtype, InternalTransfer, WarningCode
+from ..models import (
+    CoverageTier,
+    DecodedTx,
+    DecodeWarning,
+    EventSubtype,
+    InternalTransfer,
+    NormalizedEvent,
+    WarningCode,
+)
 from .abi_logs import decode_with_contract_abi, decode_with_signature
 from .dispatch import FamilyDecoder, run_families
 from .flows import TOKEN_STANDARD_TOPICS, Approval, extract
@@ -31,8 +40,13 @@ ZERO_ADDRESS = "0x" + "0" * 40  # EVM 上 token 铸币的来源地址
 
 
 def _in_scope(log: RawLog, tx: TxInfo, subject: str) -> bool:
+    """日志是否属于钱包的交互范围：钱包发起的交易里由交易目标发出，或 topic 里带钱包地址。
+
+    别人发起的交易（批量打款、空投）里，交易目标的日志大多是关于其他收款人的，只算提到钱包的那些。
+    """
     wallet_topic = "0x" + "0" * 24 + subject[2:]
-    return log.address == (tx.to_address or "") or wallet_topic in log.topics[1:]
+    own_call = tx.from_address == subject and log.address == (tx.to_address or "")
+    return own_call or wallet_topic in log.topics[1:]
 
 
 def _decode_unknown_logs(
@@ -119,7 +133,7 @@ def decode_evm_tx(
         DecodeWarning(WarningCode.MALFORMED_LOG, f"日志 {i} 格式不符合标准") for i in extracted.malformed_log_indexes
     ]
     warnings += ledger.warnings
-    events = finalize(drafts)
+    events = tuple(_upgrade_valuable(e, ctx) for e in finalize(drafts))
     # 已认领 = 事件认领的 + 流水账里被家族认领的（例如被拆分的父流水，由子流水的事件认领）
     claimed = {i for e in events for i in e.claimed_flow_ids} | {
         f.flow_id for f in ledger.flows if ledger.is_claimed(f.flow_id)
@@ -135,6 +149,13 @@ def decode_evm_tx(
         unknown_contracts=tuple(unknown),
         warnings=tuple(warnings),
     )
+
+
+def _upgrade_valuable(event: NormalizedEvent, ctx: DecodeContext) -> NormalizedEvent:
+    """T2 事件的持仓能按家族估值时升到 T3（设计文档 3.3：可估值）。交换这类没有持仓键的事件停在 T2。"""
+    if event.coverage_tier is CoverageTier.T2 and ctx.is_valuable(event.instance_key, event.position_key):
+        return replace(event, coverage_tier=CoverageTier.T3)
+    return event
 
 
 def _approval_events(approvals: Sequence[Approval], tx: TxInfo, subject: str, ctx: DecodeContext) -> list[EventDraft]:
