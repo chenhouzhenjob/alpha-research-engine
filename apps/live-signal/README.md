@@ -7,7 +7,7 @@
 
 `alpha-lp` 定时轮询本服务的 `GET /conclusion` 端点获得决策结论——调用方向是 alpha-lp 主动拉取，
 不是 research 主动推送。这一层只负责"把 research 侧算出的信号以稳定的 HTTP 接口暴露出去"，
-决策/执行逻辑不在这里（见根 [`AGENTS.md`](../../../AGENTS.md) 的项目边界）。
+决策/执行逻辑不在这里（见根 [`AGENTS.md`](../../AGENTS.md) 的项目边界）。
 
 响应里 `model_version` 当前是 `live-signal-v0.1.0-phase1`：
 
@@ -27,8 +27,8 @@
 
 ```bash
 # 1. Postgres（跟 alpha-lp 共用同一个实例，只是库名不同）
-docker compose -f ../../../products/alpha-lp/infra/docker-compose.yml up -d
-cd ../..                        # 回到 research/ 根目录
+docker compose -f ../../../alpha-engine/products/alpha-lp/infra/docker-compose.yml up -d   # alpha-engine 与本仓库同级
+cd ../..                        # 回到仓库根目录
 docker compose up               # 在同一实例上创建 alpha_research 库（已存在则跳过）
 
 # 2. 配置

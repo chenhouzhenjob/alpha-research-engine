@@ -1,10 +1,10 @@
 # research
 
 Alpha 系列的统一数据采集、特征、仿真与回测平台。只读不写链，不持有生产签名权限
-（详见仓库根 [`AGENTS.md`](../AGENTS.md) 的项目边界）。
+（详见 [`AGENTS.md`](AGENTS.md) 的项目边界）。
 
 **分层边界**：一个完整系统分五层——数据层/特征层/模型层/决策层/执行层。`research` 只做前三层
-（采集数据、算特征、跑模型给出预测/打分），`products/alpha-lp` 做后两层（结合风控规则决策、
+（采集数据、算特征、跑模型给出预测/打分），alpha-engine 仓库的 `products/alpha-lp` 做后两层（结合风控规则决策、
 真正调用合约执行）。`research` 不碰私钥、不签名、不广播交易，也不复制 alpha-lp 的生产决策逻辑。
 各层具体对应哪些模块，见 [`apps/lp-backtest/README.md`](apps/lp-backtest/README.md#分层架构这个系统在做什么不做什么)
 的详细表格（其他 `apps/` 沿用同一套分层约定）。
@@ -49,9 +49,8 @@ research/
 `packages/*`/`apps/*` 之间的内部依赖也是靠 uv 的 workspace 机制连起来的，不需要各自发布到 PyPI。
 
 ```bash
-# 先起 LP 的 Postgres/Redis 实例（本目录不另起库进程）
-docker compose -f ../products/alpha-lp/infra/docker-compose.yml up -d
-cd research
+# 先起 LP 的 Postgres/Redis 实例（本仓库不另起库进程；假定 alpha-engine 与本仓库同级目录）
+docker compose -f ../alpha-engine/products/alpha-lp/infra/docker-compose.yml up -d
 docker compose up              # 在同一实例上创建 alpha_research 库（已存在则跳过）
 cp .env.example .env           # 填 BNB_RPC_URLS；RESEARCH_DATABASE_URL 默认指向 127.0.0.1:5432/alpha_research
                                 # 要跑 live-signal 还需要填 LIVE_SIGNAL_POOL_ADDRESSES（BNB_WSS_URL

@@ -1,1 +1,26 @@
+# 环境变量；示例配置可提交
+.env
+.env.*
+!.env.example
+
+# 本地数据、密钥与日志（数据库、Parquet、缓存不提交）
+data/
 logs/
+**/*.log
+**/*.pem
+**/*.key
+**/*.parquet
+
+# Python
+.venv/
+.venv*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# 系统与编辑器
+.DS_Store

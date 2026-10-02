@@ -44,7 +44,7 @@ def build_config() -> dict:
         "generated_at": datetime.now(UTC).isoformat(),
         "chain": "bsc",
         "protocol": "pancakeswap-v3",
-        "source_design_doc": "research/docs/pool-discovery-metrics-v1.md",
+        "source_design_doc": "alpha-research-engine/docs/pool-discovery-metrics-v1.md",
         "calibration_status": "not_calibrated",
         "composite_score": {
             "normalized_components": {

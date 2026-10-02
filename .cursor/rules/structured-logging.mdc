@@ -1,0 +1,44 @@
+---
+description: 关键路径与错误必须打结构化日志；RPC/第三方失败与限流不得静默
+alwaysApply: true
+---
+
+# 结构化日志约定
+
+编写或修改会跑在生产/Worker/API 上的代码时：关键业务节点要打日志，出错必须落盘；链上 RPC、外部 HTTP、配额/限流类失败尤其不能静默吞掉。
+
+本规则跨项目通用。本仓库统一用标准库 `logging`（各入口自行 `basicConfig`/`dictConfig`），禁止另起一套日志栈或用 `print` 当运行日志。
+
+## 必须记
+
+1. **关键路径**：策略决策、开仓/平仓/调仓、签名广播、仓位同步、定时任务一轮起止、资金/权限相关状态变化。用 `info`；可预期的降级用 `warn`。
+2. **出错处**：`catch`、失败返回、重试耗尽、事务回滚、不可达不变量。用 `error`/`fatal`，带上 `err` 与能定位问题的 context（池、仓位、tx、vendor、status）。禁止空 `catch` 或只 `throw` 不记（边界层已统一记过、此处只转抛的除外）。
+3. **RPC / 第三方**：节点 JSON-RPC、价格源、聚合器、通知渠道等外部调用失败必须记。HTTP **429**、JSON-RPC **限流/配额**（`rate limit` / `quota` / `-32005` 等）必须记，并标出限流语义（区分短时限速和计划额度耗尽）。
+4. **进程级失败**：启动失败、主循环崩溃用 `fatal`。
+
+## 不要记
+
+- 每个 tick / 每个成功只读 RPC 的高频成功路径（会淹日志、拖慢热路径）
+- 私钥、助记词、完整签名、Authorization、cookie
+- 用 `console.log` / `console.error` 替代 logger（脚本探测除外）
+
+## 写法
+
+```ts
+const logger = getLogger('chain')
+
+// ❌ BAD：RPC/限流失败被吞或只抛不记
+try {
+  await client.getBlockNumber()
+} catch {}
+
+// ✅ GOOD：外部失败走统一入口，保留 vendor / status / 原文
+try {
+  await client.getBlockNumber()
+} catch (err) {
+  logVendorError(logger, { vendor: 'bsc-rpc', err, message: String(err), context: { url: rpcUrl } })
+  throw err
+}
+```
+
+无 `logVendorError` 时：`logger.error({ err, vendor, status, quotaExceeded: status === 429 }, 'rpc request failed')`。

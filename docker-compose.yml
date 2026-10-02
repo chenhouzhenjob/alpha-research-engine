@@ -1,7 +1,7 @@
-# 不另起 Postgres。复用 products/alpha-lp/infra 已启动的实例（127.0.0.1:5432），
+# 不另起 Postgres。复用 alpha-engine 仓库 products/alpha-lp/infra 已启动的实例（127.0.0.1:5432），
 # 只在该实例上创建 alpha_research 库（已存在则跳过）。
 #
-# 先在 LP 目录执行：
+# 先在 alpha-engine 仓库的 products/alpha-lp 目录执行：
 #   docker compose -f infra/docker-compose.yml up -d
 # 再在本目录执行：
 #   docker compose up

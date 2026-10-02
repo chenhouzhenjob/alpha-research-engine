@@ -24,7 +24,7 @@ FeeAPR = (24h手续费收入 / TVL) × 365
 24h手续费收入 = 24h volume × feePips/1e6 × (1 − 平均协议抽成)
 ```
 
-- 复用 `estimateFeeDailyUsd`（[packages/pancake-v3/src/range-estimate.ts:138](../../products/alpha-lp/packages/pancake-v3/src/range-estimate.ts)）的池子级变体：现有实现按"用户份额"算，池子发现场景不针对具体仓位，取**全池维度**（不除以 `liquidityShare`）。
+- 复用 `estimateFeeDailyUsd`（alpha-engine 仓库 `products/alpha-lp/packages/pancake-v3/src/range-estimate.ts:138`）的池子级变体：现有实现按"用户份额"算，池子发现场景不针对具体仓位，取**全池维度**（不除以 `liquidityShare`）。
 - 数据源：GeckoTerminal 提供的 24h volume + 池子自身 feePips（链上 `Factory`/`Pool` 合约常量）。
 
 **CAKE 激励 APR**
@@ -95,7 +95,7 @@ w_typical = ln(P_upper_typical / P_current)   // 该池当前其他 LP 实际集
 T_exit_days ≈ (w_typical² / σ_price²) × 365   // 对称区间内布朗运动首次出界期望时间
 ```
 
-- `w_typical` 复用现有 `ReadonlyPancakeV3RangeReader`（[packages/pancake-v3/src/range-estimate.ts:167](../../products/alpha-lp/packages/pancake-v3/src/range-estimate.ts)）的 TickLens 数据：取当前活跃流动性集中度最高的 tick 区间（如覆盖 60% 活跃流动性的最窄区间）作为"这个池子里大家实际在用的典型区间"。
+- `w_typical` 复用现有 `ReadonlyPancakeV3RangeReader`（alpha-engine 仓库 `products/alpha-lp/packages/pancake-v3/src/range-estimate.ts:167`）的 TickLens 数据：取当前活跃流动性集中度最高的 tick 区间（如覆盖 60% 活跃流动性的最窄区间）作为"这个池子里大家实际在用的典型区间"。
 - 输出语义："如果你跟这个池子里大多数 LP 一样选区间宽度，预计约 `T_exit_days` 天价格会跑出区间一次（需要跳仓维护）。"——不参与打分，只是让用户自己判断维护成本，因为区间宽度是用户的选择，不该被算进池子本身的排名。
 - 这是近似模型（假设无漂移的几何布朗运动），且 `w_typical` 依赖 TickLens 集中度快照，本身有噪音，展示时需标注"预估值，仅供参考"。
 
