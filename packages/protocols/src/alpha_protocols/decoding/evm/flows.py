@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
 from alpha_core.ports import AddressTransfer, TransferKind
@@ -137,7 +138,7 @@ def _log_flows(log: RawLog, subject: str, b: _Builder) -> bool:
     return False  # 签名对得上但 topic 个数不对
 
 
-def _approval(log: RawLog, subject: str) -> Approval | None | bool:
+def _approval(log: RawLog, subject: str) -> Approval | Literal[False] | None:
     """解析主体作为 owner 的授权；不是授权日志返回 None，格式错误返回 False。"""
     t = log.topics
     if not t or t[0] not in (APPROVAL, APPROVAL_FOR_ALL) or len(t) < 3 or _addr(t[1]) != subject:
