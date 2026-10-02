@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "family": "generic",
+  "case": "native_out",
+  "chain": "base",
+  "tx_hash": "0x1ae71057df2cd44de0a425bf75fe9b7ed7ddcdf6e4222e6b10db4f93354d991d",
+  "subject_wallet": "0xdc9c5e34959ec3643af1e1d34a83d6b251aab1ef",
+  "note": "Base 纯 ETH 转出：gas 必须加 l1Fee",
+  "tx": {
+    "tx_hash": "0x1ae71057df2cd44de0a425bf75fe9b7ed7ddcdf6e4222e6b10db4f93354d991d",
+    "block_number": 41059642,
+    "tx_index": 18,
+    "from_address": "0xdc9c5e34959ec3643af1e1d34a83d6b251aab1ef",
+    "to_address": "0x1fff29e0726f714ce0b2165b96320bce41b105a0",
+    "value": 1000200000000000000,
+    "input": "0x",
+    "nonce": 2064,
+    "gas_price": 5437573,
+    "tx_type": 2,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x1ae71057df2cd44de0a425bf75fe9b7ed7ddcdf6e4222e6b10db4f93354d991d",
+    "block_number": 41059642,
+    "tx_index": 18,
+    "from_address": "0xdc9c5e34959ec3643af1e1d34a83d6b251aab1ef",
+    "to_address": "0x1fff29e0726f714ce0b2165b96320bce41b105a0",
+    "status": 1,
+    "gas_used": 21000,
+    "effective_gas_price": 5437573,
+    "contract_address": null,
+    "logs": [],
+    "l1_fee": 522187619
+  },
+  "block_time": "2026-01-20T11:30:31+00:00",
+  "subject_state": {
+    "balance_before": 1020612122426133256,
+    "balance_after": 20412007714912637,
+    "nonce_before": 2064,
+    "nonce_after": 2065,
+    "balance_delta_attributable": true
+  },
+  "tokens": {}
+}

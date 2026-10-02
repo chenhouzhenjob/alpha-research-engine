@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "family": "uniswap_v2_like",
+  "case": "remove_liquidity_eth",
+  "chain": "base",
+  "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f",
+  "subject_wallet": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+  "note": "removeLiquidityETH：收到 ETH",
+  "tx": {
+    "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f",
+    "block_number": 51932098,
+    "tx_index": 78,
+    "from_address": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+    "to_address": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+    "value": 0,
+    "input": "0x02751cec000000000000000000000000472edfbb126441101ff9544d98d3b4fb49995a360000000000000000000000000000000000000000000012115d52e5d5abce1db100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a1ba9a5d598fee05899834975c8929f2a635d9d9000000000000000000000000000000000000000000000000000000006abb34be",
+    "nonce": 5,
+    "gas_price": 20000000,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f",
+    "block_number": 51932098,
+    "tx_index": 78,
+    "from_address": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+    "to_address": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+    "status": 1,
+    "gas_used": 200656,
+    "effective_gas_price": 20000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xebcc85cf8e4ef162365951d8c2694c527682ec70",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000a1ba9a5d598fee05899834975c8929f2a635d9d9",
+          "0x000000000000000000000000ebcc85cf8e4ef162365951d8c2694c527682ec70"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000012115d52e5d5abce1db1",
+        "log_index": 277,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0xebcc85cf8e4ef162365951d8c2694c527682ec70",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x0000000000000000000000009bd25e67bf390437c8faf480ac735a27bcf6168c"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000007ed2743ec1e51f57",
+        "log_index": 278,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0xebcc85cf8e4ef162365951d8c2694c527682ec70",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000ebcc85cf8e4ef162365951d8c2694c527682ec70",
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000012115d52e5d5abce1db1",
+        "log_index": 279,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0x4200000000000000000000000000000000000006",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000ebcc85cf8e4ef162365951d8c2694c527682ec70",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000197d81c7eeddff1a",
+        "log_index": 280,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0x472edfbb126441101ff9544d98d3b4fb49995a36",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000ebcc85cf8e4ef162365951d8c2694c527682ec70",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+        ],
+        "data": "0x00000000000000000000000000000000000000000cd20876fff150d7db02316e",
+        "log_index": 281,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0xebcc85cf8e4ef162365951d8c2694c527682ec70",
+        "topics": [
+          "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000b2ebf90b25b80000000000000000000000000000000000000000000059fd506829db84bdb84c",
+        "log_index": 282,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0xebcc85cf8e4ef162365951d8c2694c527682ec70",
+        "topics": [
+          "0xdccd412f0b1252819cb1fd330b93224ca42612892bb3f4f789976e6d81936496",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000197d81c7eeddff1a00000000000000000000000000000000000000000cd20876fff150d7db02316e",
+        "log_index": 283,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0x472edfbb126441101ff9544d98d3b4fb49995a36",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+          "0x000000000000000000000000a1ba9a5d598fee05899834975c8929f2a635d9d9"
+        ],
+        "data": "0x00000000000000000000000000000000000000000cd20876fff150d7db02316e",
+        "log_index": 284,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      },
+      {
+        "address": "0x4200000000000000000000000000000000000006",
+        "topics": [
+          "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65",
+          "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000197d81c7eeddff1a",
+        "log_index": 285,
+        "block_number": 51932098,
+        "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f"
+      }
+    ],
+    "l1_fee": 6525644968
+  },
+  "block_time": "2026-09-29T03:45:43+00:00",
+  "subject_state": {
+    "balance_before": 4887028024720346,
+    "balance_after": 1841649927122106956,
+    "nonce_before": 5,
+    "nonce_after": 6,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x472edfbb126441101ff9544d98d3b4fb49995a36": {
+      "symbol": "ANTHROPIC",
+      "name": "ANTHROPIC",
+      "decimals": 18
+    },
+    "0xebcc85cf8e4ef162365951d8c2694c527682ec70": {
+      "symbol": "UNI-V2",
+      "name": "Uniswap V2",
+      "decimals": 18
+    }
+  }
+}

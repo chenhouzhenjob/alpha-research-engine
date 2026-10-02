@@ -1,0 +1,95 @@
+{
+  "schema_version": 2,
+  "family": "compound_v2_like",
+  "case": "borrow_vusdt",
+  "chain": "bsc",
+  "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f",
+  "subject_wallet": "0xda43f2a3dc5f1ea90f82db1a1ab7585463060e3a",
+  "note": "vUSDT 借款",
+  "tx": {
+    "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f",
+    "block_number": 124640350,
+    "tx_index": 70,
+    "from_address": "0xda43f2a3dc5f1ea90f82db1a1ab7585463060e3a",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "value": 0,
+    "input": "0xc5ebeaec0000000000000000000000000000000000000000000000022b1c8c1227a00000",
+    "nonce": 95,
+    "gas_price": 50000000,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f",
+    "block_number": 124640350,
+    "tx_index": 70,
+    "from_address": "0xda43f2a3dc5f1ea90f82db1a1ab7585463060e3a",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "status": 1,
+    "gas_used": 655097,
+    "effective_gas_price": 50000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0x4dec04e750ca11537cabcd8a9eab06494de08da3735bc8871cd41250e190bc04"
+        ],
+        "data": "0x00000000000000000000000000000000000000000026fbec6efe96f03623df0b00000000000000000000000000000000000000000000000007be1197c25bb0d600000000000000000000000000000000000000000000000014eeb74ed470a8200000000000000000000000000000000000000000006f2fb0a4fa09e9af4a4975",
+        "log_index": 370,
+        "block_number": 124640350,
+        "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f"
+      },
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0x837bdc11fca9f17ce44167944475225a205279b17e88c791c3b1f66f354668fb",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000da43f2a3dc5f1ea90f82db1a1ab7585463060e3a"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c353d921fc763de47eb1f40d8d9eda",
+        "log_index": 371,
+        "block_number": 124640350,
+        "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000da43f2a3dc5f1ea90f82db1a1ab7585463060e3a"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000022b1c8c1227a00000",
+        "log_index": 372,
+        "block_number": 124640350,
+        "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f"
+      },
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0x13ed6866d4e1ee6da46f845c46d7e54120883d75c5ea9a2dacc1c4ca8984ab80"
+        ],
+        "data": "0x000000000000000000000000da43f2a3dc5f1ea90f82db1a1ab7585463060e3a0000000000000000000000000000000000000000000000022b1c8c1227a0000000000000000000000000000000000000000000000000000db42ba2ef86159f9d0000000000000000000000000000000000000000006f2fb2d01695fbd6ea4975",
+        "log_index": 373,
+        "block_number": 124640350,
+        "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-29T02:55:35+00:00",
+  "subject_state": {
+    "balance_before": 80798048346740,
+    "balance_after": 48043198346740,
+    "nonce_before": 95,
+    "nonce_after": 96,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    }
+  }
+}

@@ -1,0 +1,517 @@
+{
+  "schema_version": 2,
+  "cases": [
+    {
+      "family": "generic",
+      "case": "native_in",
+      "chain": "bsc",
+      "tx_hash": "0x4183a7fa665d7fadf58f1963fb7c70a7661096795b561b866b5610beb7666881",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "外部地址直接转入 BNB"
+    },
+    {
+      "family": "generic",
+      "case": "erc20_out",
+      "chain": "bsc",
+      "tx_hash": "0x11b821815d72fb0212e1b44869b7b4b973c1786dca8427fc91e4363f5424d066",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "钱包直接调用 USDT.transfer 转出"
+    },
+    {
+      "family": "generic",
+      "case": "erc20_in",
+      "chain": "bsc",
+      "tx_hash": "0xe04d96f65df02bc8518177e03c1003f683230ae568ba393d7bf7f909a1150988",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "别人转入真 USDT，交易不是钱包发起的"
+    },
+    {
+      "family": "generic",
+      "case": "approve",
+      "chain": "bsc",
+      "tx_hash": "0x1bf11137753858087b0f88203208d7873bfdff6229cb8a35353a8f3c2f00af97",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "USDT approve"
+    },
+    {
+      "family": "generic",
+      "case": "failed",
+      "chain": "bsc",
+      "tx_hash": "0xd90233b0a34b662f003568d728ff012dadc57ff07cccb7f338b370f443d641ba",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "失败的聚合器交易，只有 gas"
+    },
+    {
+      "family": "generic",
+      "case": "impersonator_ascii",
+      "chain": "bsc",
+      "tx_hash": "0xa6fdae240e14cfac7f5d896ed1c9e342443bb32fd26ac023984c1a6eb3eebff7",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "仿冒 USDT：ASCII 形近字符 'U5DT'，方向 out"
+    },
+    {
+      "family": "generic",
+      "case": "impersonator_confusable",
+      "chain": "bsc",
+      "tx_hash": "0x0457d03e52462b5a006916a085c71b6069c370322439335fa203da58185e3e27",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "仿冒 USDT：含非 ASCII 同形字符 'UЅDТ'，方向 out"
+    },
+    {
+      "family": "generic",
+      "case": "zero_transfer_from",
+      "chain": "bsc",
+      "tx_hash": "0xa24c0f341dd1baecf01738f651b1220da6acd03445b3636e35084703087cb152",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "别人发起的、从钱包转出 0 数量的 transferFrom（地址投毒）"
+    },
+    {
+      "family": "generic",
+      "case": "spam_nft",
+      "chain": "bsc",
+      "tx_hash": "0x1795d134a4f7f957897197ab238303363ef0ed5efc9376dac9d11e03ec5db5e9",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "ERC1155 垃圾空投，名称含网址"
+    },
+    {
+      "family": "generic",
+      "case": "misc_checkin",
+      "chain": "bsc",
+      "tx_hash": "0x2df75ed1f98cd5e756a77e0d68b1043e0db541377d132aad44ec7a36b474a52f",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "checkIn() 签到，不动资产"
+    },
+    {
+      "family": "generic",
+      "case": "misc_claim_v2",
+      "chain": "bsc",
+      "tx_hash": "0xf9f961cf52735d57b070607e367f67c0e8a386d6fe2d143ee10a80db7bd41e20",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "claimV2 领取"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint_token",
+      "chain": "bsc",
+      "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "NPM.mint，两边都付 ERC20"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall",
+      "chain": "bsc",
+      "tx_hash": "0xf5d2b868ffc34a447d31315c18e059384c917750ba9069b3ae1ba86ff2485dcd",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "multicall：decreaseLiquidity + collect（基准钱包的退出全是这种，不含 unwrap）"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "collect_only",
+      "chain": "bsc",
+      "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "单独 collect"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "swap_e5e8894b",
+      "chain": "bsc",
+      "tx_hash": "0x7f9d6523b99c4beeb146f0b53746ef8d4dce71faea8858a14ddff5972861b9e4",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "聚合器交换，选择器 0xe5e8894b"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "swap_810c705b",
+      "chain": "bsc",
+      "tx_hash": "0x899b7b85bc7b09070e6ab4762d999df638bc9a9ced4f99d10ade778e974e3f27",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "聚合器交换，选择器 0x810c705b"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "swap_a03de6a9",
+      "chain": "bsc",
+      "tx_hash": "0x51c484ade361a762df7fd1f742810d8f4b354cc2c386015baef51fe720821647",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "聚合器交换，选择器 0xa03de6a9"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "swap_dad12b6c",
+      "chain": "bsc",
+      "tx_hash": "0x776665d79c2653fc5b6a95f1d178bb17cfdb56bd907b2bf68347092b98153b7d",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "聚合器交换，选择器 0xdad12b6c"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "to_native",
+      "chain": "bsc",
+      "tx_hash": "0x4fb87654457d2758fd50912651fe33ed27f2a23352a775e6e3e31a87b8e21061",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "只有 token 流出、没有 token 流入：换成了 BNB，缺内部交易"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "wrap",
+      "chain": "bsc",
+      "tx_hash": "0xc97c7906861caa2da1cd69c9dafd123a990076f7cee0f9f2e19ee5ab1c5586ce",
+      "subject_wallet": "0x967aad40819e59567d58d9eccab727f05f6334fd",
+      "note": "直接调用 WBNB.deposit，或直接向 WBNB 转 BNB 触发 deposit"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "unwrap",
+      "chain": "bsc",
+      "tx_hash": "0xed1e64288bc72dccdab8195b09fbcaa53ce950d6b5cb89b6832cd5a95d58d9e5",
+      "subject_wallet": "0x358ad9bbd109ccf0fc5c10ca3bb89d7ea842cea2",
+      "note": "直接调用 WBNB.withdraw"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity",
+      "chain": "bsc",
+      "tx_hash": "0xcd6240aa00bf3b3766f1f701f0f2e11580798fee2d8dac6228c8d31bb2e1a94f",
+      "subject_wallet": "0xe3b3fcd8c3126eed4615b99d2c1884811035baf9",
+      "note": "addLiquidity：两种 ERC20"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity_eth",
+      "chain": "bsc",
+      "tx_hash": "0x0154acebbc055ef84b89dc63823076f434f3b15e47af395b7e5cba788cc11e10",
+      "subject_wallet": "0x297792b2314f4e74558fa189b30ec2e0c8396c1d",
+      "note": "addLiquidityETH：一边付 BNB"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity",
+      "chain": "bsc",
+      "tx_hash": "0x5b6712adbc6768a22bf442bfdf4a33c30adc0232e27ae4c28aaf1252ec6f0c67",
+      "subject_wallet": "0x6334623b5bf264af5b5f44556e8f53536b42f1df",
+      "note": "removeLiquidity"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity_eth",
+      "chain": "bsc",
+      "tx_hash": "0x5d41d3471c0be5384cb65f523cb16e317ceec4814bd331f423970473ac051913",
+      "subject_wallet": "0xb44d23581802606fb97fec17eca813fa410ac98f",
+      "note": "removeLiquidityETH（含支持转账税的版本）：收到 BNB"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_tokens",
+      "chain": "bsc",
+      "tx_hash": "0xf2bc00a0a8a3b9bf021639d1d2b29ba85c6bdc56dc9b0ddc17a67f2a02d9bd74",
+      "subject_wallet": "0x36d2540ef086554468afa488473a4bc004b6b1d6",
+      "note": "token 换 token"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth",
+      "chain": "bsc",
+      "tx_hash": "0xecd0ea14a77487f156a1abe606955baefe5ca36b765e962f81408fb7f1ee6cd5",
+      "subject_wallet": "0xfd67968866e6137404b99e45e99337014afa5e1e",
+      "note": "token 换 BNB：路由 Withdrawal 后转原生币"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_eth_for_tokens",
+      "chain": "bsc",
+      "tx_hash": "0x310a5729b3ecc3ff96da5f39b95163fa1ff567ec08d9e20e70c78abb37a88237",
+      "subject_wallet": "0xbd515fee21ca722a002b0115cbef6df6b06de83e",
+      "note": "BNB 换 token"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint_native",
+      "chain": "bsc",
+      "tx_hash": "0xc1ecadd03cb39828ab3b39b19477e177ddba0ba86102622265cb587bbf91b663",
+      "subject_wallet": "0xda41ce30b87ce33792b440ed6752d006ebee0b3f",
+      "note": "付 BNB 开仓：multicall(mint + refundETH) 带 value"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall_unwrap",
+      "chain": "bsc",
+      "tx_hash": "0x2828466a28374aed29dba03a379dd0a23ce294b62276ab2e1a0de554c403ab91",
+      "subject_wallet": "0xe8289b979960bac4fddd6736c8ff9ba3e71a4465",
+      "note": "multicall：decrease + collect + unwrapWETH9，由推断钩子补原生币"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "supply_vusdt",
+      "chain": "bsc",
+      "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd",
+      "subject_wallet": "0xaa23f3d025aad24547b553d61485d4ca154fe93e",
+      "note": "vUSDT 存入（Venus 4 字段 Mint）"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "redeem_vusdt",
+      "chain": "bsc",
+      "tx_hash": "0xa651ee7b74ac92b049fb6acd281add9b3fdd9b4f4ec691d9734e72386769dbb7",
+      "subject_wallet": "0xdc82e19e3c3ff3aad9df51c4c4f58977b9484bd9",
+      "note": "vUSDT 取出（Venus 4 字段 Redeem）"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "borrow_vusdt",
+      "chain": "bsc",
+      "tx_hash": "0xcfd375440670c2cad596e6b5e8bef4225e19dd00841796c645ac4c6f07e32f4f",
+      "subject_wallet": "0xda43f2a3dc5f1ea90f82db1a1ab7585463060e3a",
+      "note": "vUSDT 借款"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "repay_vusdt",
+      "chain": "bsc",
+      "tx_hash": "0x7a859e82a13516e07599108d11768017896afbbbe1c111de8a11317b0be313de",
+      "subject_wallet": "0x6825d3f242621ac99803bc6b0b1fe79193bcc4c3",
+      "note": "借款人自己还款"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "repay_on_behalf_payer",
+      "chain": "bsc",
+      "tx_hash": "0xc45c22e3dbbd4f092a55d9a07187a4efb2e6a3a564184700946704584f56a35d",
+      "subject_wallet": "0x03f079e809185a669ca188676d0adb09cbad6dc1",
+      "note": "替别人还款：还款人视角"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "repay_on_behalf_borrower",
+      "chain": "bsc",
+      "tx_hash": "0xc45c22e3dbbd4f092a55d9a07187a4efb2e6a3a564184700946704584f56a35d",
+      "subject_wallet": "0xeb0cbba408436997afd29c50d6a9ffccf9a2493f",
+      "note": "替别人还款：借款人视角（状态事件）"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "borrow_vbnb",
+      "chain": "bsc",
+      "tx_hash": "0xaab2dffa444750eaa0999694c1244a75f17f0d3363fa79c8412aa2073cf354ae",
+      "subject_wallet": "0xc6391eb74cd6af56d5e09a7705f88568bf265693",
+      "note": "vBNB 借款：原生币由推断钩子补齐"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "supply_vbnb_via_gateway",
+      "chain": "bsc",
+      "tx_hash": "0xdedf6e5652c9dc5871acc7b33ca671269abcf7ff1f13dfff18695011e312659b",
+      "subject_wallet": "0x4402364f08532d67e51f84399b8aced42b946c93",
+      "note": "vBNB 存入（Compound 原版 3 字段 Mint），经 gateway"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "redeem_vbnb",
+      "chain": "bsc",
+      "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95",
+      "subject_wallet": "0xf3c30fcc95265bbb6719e62383d31e88cc330e29",
+      "note": "vBNB 取出（Compound 原版 3 字段 Redeem），直接调用 vBNB：原生币由推断钩子补齐"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "liquidation_borrower",
+      "chain": "bsc",
+      "tx_hash": "0x1cd8bb69b64907ec35af791f612fe093797761578371bee701c26dbd71b4081e",
+      "subject_wallet": "0xabf2f7d86dcc81cf4b1a21c1cbb8a6aaecf112da",
+      "note": "清算：借款人视角"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "liquidation_liquidator",
+      "chain": "bsc",
+      "tx_hash": "0x1cd8bb69b64907ec35af791f612fe093797761578371bee701c26dbd71b4081e",
+      "subject_wallet": "0x0870793286aada55d39ce7f82fb2766e8004cf43",
+      "note": "清算：清算人视角"
+    },
+    {
+      "family": "compound_v2_like",
+      "case": "claim_xvs",
+      "chain": "bsc",
+      "tx_hash": "0xe4f6efa717d2051ee0aeb483aec7a627d8b5ca9a626cac5389dabdfc4a633712",
+      "subject_wallet": "0x7ede7fefe5f4cc0786757441d11587f8b7830389",
+      "note": "从 Comptroller 领取 XVS"
+    },
+    {
+      "family": "generic",
+      "case": "native_out",
+      "chain": "base",
+      "tx_hash": "0x1ae71057df2cd44de0a425bf75fe9b7ed7ddcdf6e4222e6b10db4f93354d991d",
+      "subject_wallet": "0xdc9c5e34959ec3643af1e1d34a83d6b251aab1ef",
+      "note": "Base 纯 ETH 转出：gas 必须加 l1Fee"
+    },
+    {
+      "family": "generic",
+      "case": "l1_deposit",
+      "chain": "base",
+      "tx_hash": "0x1f8875e370f525bc502d614a480f907d4b0478d1187510fbe0dcaa37828876f9",
+      "subject_wallet": "0x371f1aed044d8ee1d96e440f54ff89eaa0dab582",
+      "note": "OP Stack 存款交易：凭空铸造 ETH，无日志，不付 gas"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "wrap",
+      "chain": "base",
+      "tx_hash": "0xc35f54bf42100e13e49a83273e00501ff0427666b1c86014cdcd1df33af74324",
+      "subject_wallet": "0xf5708035efa3bcb8479bd655c7297dfea940d877",
+      "note": "直接调用 WETH.deposit 或直接转 ETH"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "unwrap",
+      "chain": "base",
+      "tx_hash": "0x958c28e57612692e2c65568fca07173a102c984e08b15b9aae0b7b0dce7a7bdb",
+      "subject_wallet": "0x723d2f5cba5444cc222ae069e8cc8544ddc1899d",
+      "note": "直接调用 WETH.withdraw"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint",
+      "chain": "base",
+      "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539",
+      "subject_wallet": "0xed9c44bb4cdd0b369d72362be644296288511648",
+      "note": "Uniswap V3 开仓（mint 或含 mint 的 multicall）"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall_unwrap",
+      "chain": "base",
+      "tx_hash": "0x257270e8d6c590d2cc9b0882554e5275bf42ba70072aadc6e137bd37fc3b26f7",
+      "subject_wallet": "0xcb6586874cc04b01cc4fdb777de502cea7b3d6c1",
+      "note": "退出含 unwrapWETH9"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "collect_only",
+      "chain": "base",
+      "tx_hash": "0x662af0a4aa20ac46d6f9ec45798cc272a85e0398758c0757936d23d7dfb2e83c",
+      "subject_wallet": "0x5252915b507eac284c10fba985cd3e4dfa2b98d4",
+      "note": "单独 collect"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity",
+      "chain": "base",
+      "tx_hash": "0xe835c895fe9991505c8ab9911d1ab1e470f3c3ca5bba6da0ac8cc7dc75897cdc",
+      "subject_wallet": "0x9905c41b6007ded4784b3857e3e7bd071c1f8b44",
+      "note": "Uniswap V2 添加流动性"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity_eth",
+      "chain": "base",
+      "tx_hash": "0x9aa0ec27830925bd254e6f42f0638b16e0a9a3ff0a2d95bb69f6120f19fe911f",
+      "subject_wallet": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+      "note": "removeLiquidityETH：收到 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth",
+      "chain": "base",
+      "tx_hash": "0x1e1e2e48cf3e498f0125a77d1dd2bf76e4b3be31a043744dc40fab1ab45624c5",
+      "subject_wallet": "0xa1ba9a5d598fee05899834975c8929f2a635d9d9",
+      "note": "token 换 ETH"
+    },
+    {
+      "family": "generic",
+      "case": "erc20_out",
+      "chain": "ethereum",
+      "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6",
+      "subject_wallet": "0x41be1b985efe4c491e12f6ecac519f7917c8ff11",
+      "note": "以太坊 USDT.transfer（非标准 ERC20：不返回 bool）"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "wrap",
+      "chain": "ethereum",
+      "tx_hash": "0x712c359e5a0dbaba78cc2a937d907fba0824956b73cef36e9f8f5b6a3aafc3cb",
+      "subject_wallet": "0x6cb5ee0270d405ccee26b9b45629df80148dbe92",
+      "note": "直接调用 WETH.deposit 或直接转 ETH"
+    },
+    {
+      "family": "wrapped_native",
+      "case": "unwrap",
+      "chain": "ethereum",
+      "tx_hash": "0x0913bace27719dd6326d0bc6ff0ce5b015446ff216d4b025c9bf0b27813d6add",
+      "subject_wallet": "0xac4af458ad95e8add99670a4f1e65ca3d8ff3600",
+      "note": "直接调用 WETH.withdraw"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "mint",
+      "chain": "ethereum",
+      "tx_hash": "0x05d07b5352fd04a447e9595cc6057df021764813f591586439cfa9a075c40daf",
+      "subject_wallet": "0x140bb7a0702788d7f5887866a6f3e069c6663663",
+      "note": "Uniswap V3 开仓（mint 或含 mint 的 multicall）"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "exit_multicall_unwrap",
+      "chain": "ethereum",
+      "tx_hash": "0xc0e25dba3af7a490ccb3a553b5fd24d6bd163f0011063c30910c987b0863341b",
+      "subject_wallet": "0x3eb5af2576b2068b748ae068628963abb858a6e9",
+      "note": "退出含 unwrapWETH9"
+    },
+    {
+      "family": "uniswap_v3_like",
+      "case": "collect_only",
+      "chain": "ethereum",
+      "tx_hash": "0xe1a8321f67f09fd3b95e78ba350be0788c5f731eef48f49351fd0b089cfa29c4",
+      "subject_wallet": "0x7af73fdeb5a533df73838f7801137d719f2ccc18",
+      "note": "单独 collect"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "add_liquidity",
+      "chain": "ethereum",
+      "tx_hash": "0xa12c730019b276a1a33bda9e247792c13670d83928ce0c4df2ac2f9aed0bc118",
+      "subject_wallet": "0xe9bb834abf93069c9c71dc84eb9ed0058c9b3b07",
+      "note": "Uniswap V2 添加流动性"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "remove_liquidity_eth",
+      "chain": "ethereum",
+      "tx_hash": "0xd3c285a8e2eeed07b252a234cd182659dfeb807048e2ae74e876ca1d5593f131",
+      "subject_wallet": "0x656c54089502d4ab36a35166b514ec761c33f4b7",
+      "note": "removeLiquidityETH：收到 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth",
+      "chain": "ethereum",
+      "tx_hash": "0xc478ad1958674597562f0d55c21364ff054392c23b89016986cadcf449fd27a5",
+      "subject_wallet": "0x3e0feac2bc9c1a3d6b0200ff89808240bdc85e8b",
+      "note": "token 换 ETH"
+    },
+    {
+      "family": "uniswap_v2_like",
+      "case": "swap_tokens_for_eth_tax_token",
+      "chain": "ethereum",
+      "tx_hash": "0x0914871f3f7580cf7d7b8e04d87dde12dd2989795b0fe9cb349fe1e035d596ad",
+      "subject_wallet": "0xc6a304cad64c1c6922fbf320eb93ebc4307b4321",
+      "note": "带转账税的 token 换 ETH：路由解包两次，只有钱包转出 token 之后的第一次属于钱包"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "call_lifi_swap",
+      "chain": "bsc",
+      "tx_hash": "0x0df2e39b74d9249a6f494a4d83c58f6ba945cf23aab4cd3b80f40669f1da4f4e",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "callLiFi（0x849ce572）同链交换：付出 BNB、收到 USDT，方法不在交换列表里"
+    },
+    {
+      "family": "dex_aggregator",
+      "case": "unrecognized_one_sided",
+      "chain": "bsc",
+      "tx_hash": "0x483a8a5b68a13195334b9d9a0082b1f46fa22da8cb8324935f35f4a83e9c2035",
+      "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+      "note": "0x3ecba7f8（签名查不到）只有 USDT 转出，像跨链"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": 2,
+  "family": "uniswap_v3_like",
+  "case": "mint",
+  "chain": "base",
+  "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539",
+  "subject_wallet": "0xed9c44bb4cdd0b369d72362be644296288511648",
+  "note": "Uniswap V3 开仓（mint 或含 mint 的 multicall）",
+  "tx": {
+    "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539",
+    "block_number": 51932014,
+    "tx_index": 178,
+    "from_address": "0xed9c44bb4cdd0b369d72362be644296288511648",
+    "to_address": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+    "value": 0,
+    "input": "0x8831645600000000000000000000000007b3d902783c3c12b077508c3b5c00113d1291d0000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000000000000000000000000064fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb353efffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb37b7000000000000000000000000000000000000000000000568c9d6a7e28cb52b4c00000000000000000000000000000000000000000000000000000000205b394400000000000000000000000000000000000000000000016645ba95a06b0f5e8e0000000000000000000000000000000000000000000000000000000004f099a1000000000000000000000000ed9c44bb4cdd0b369d72362be644296288511648000000000000000000000000000000000000000000000000000000006abb3abd",
+    "nonce": 54,
+    "gas_price": 11090000,
+    "tx_type": 2,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539",
+    "block_number": 51932014,
+    "tx_index": 178,
+    "from_address": "0xed9c44bb4cdd0b369d72362be644296288511648",
+    "to_address": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+    "status": 1,
+    "gas_used": 496583,
+    "effective_gas_price": 11090000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x07b3d902783c3c12b077508c3b5c00113d1291d0",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000ed9c44bb4cdd0b369d72362be644296288511648",
+          "0x0000000000000000000000002df380544b88adb3ad0a94100dcc45fd705aae2d"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000568c9d6a7e28c38650a",
+        "log_index": 674,
+        "block_number": 51932014,
+        "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539"
+      },
+      {
+        "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000ed9c44bb4cdd0b369d72362be644296288511648",
+          "0x0000000000000000000000002df380544b88adb3ad0a94100dcc45fd705aae2d"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000000001f459b84",
+        "log_index": 675,
+        "block_number": 51932014,
+        "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539"
+      },
+      {
+        "address": "0x2df380544b88adb3ad0a94100dcc45fd705aae2d",
+        "topics": [
+          "0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde",
+          "0x00000000000000000000000003a520b32c04bf3beef7beb72e919cf822ed34f1",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb353e",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb37b7"
+        ],
+        "data": "0x00000000000000000000000003a520b32c04bf3beef7beb72e919cf822ed34f1000000000000000000000000000000000000000000000000033e91ecaba47c26000000000000000000000000000000000000000000000568c9d6a7e28c38650a000000000000000000000000000000000000000000000000000000001f459b84",
+        "log_index": 676,
+        "block_number": 51932014,
+        "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539"
+      },
+      {
+        "address": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x000000000000000000000000ed9c44bb4cdd0b369d72362be644296288511648",
+          "0x00000000000000000000000000000000000000000000000000000000005d3a7d"
+        ],
+        "data": "0x",
+        "log_index": 677,
+        "block_number": 51932014,
+        "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539"
+      },
+      {
+        "address": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+        "topics": [
+          "0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f",
+          "0x00000000000000000000000000000000000000000000000000000000005d3a7d"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000033e91ecaba47c26000000000000000000000000000000000000000000000568c9d6a7e28c38650a000000000000000000000000000000000000000000000000000000001f459b84",
+        "log_index": 678,
+        "block_number": 51932014,
+        "tx_hash": "0xd67c35419f062b9327a7b97ffdcec9127b9227b152095ecec361b9dd887ca539"
+      }
+    ],
+    "l1_fee": 10639032932
+  },
+  "block_time": "2026-09-29T03:42:55+00:00",
+  "subject_state": {
+    "balance_before": 665951657530539,
+    "balance_after": 660433913027607,
+    "nonce_before": 54,
+    "nonce_after": 55,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x03a520b32c04bf3beef7beb72e919cf822ed34f1": {
+      "symbol": "UNI-V3-POS",
+      "name": "Uniswap V3 Positions NFT-V1",
+      "decimals": null
+    },
+    "0x07b3d902783c3c12b077508c3b5c00113d1291d0": {
+      "symbol": "XDP",
+      "name": "Doppler",
+      "decimals": 18
+    },
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": {
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "decimals": 6
+    }
+  }
+}

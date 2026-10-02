@@ -1,0 +1,62 @@
+{
+  "config_version": "1.0.0",
+  "generated_at": "2026-08-15T15:27:08.823881+00:00",
+  "chain": "bsc",
+  "protocol": "pancakeswap-v3",
+  "source_design_doc": "research/docs/pool-discovery-metrics-v1.md",
+  "calibration_status": "not_calibrated",
+  "composite_score": {
+    "normalized_components": {
+      "nominal_apr": {
+        "weight": 0.3,
+        "direction": "positive"
+      },
+      "vt_ratio": {
+        "weight": 0.25,
+        "direction": "positive"
+      },
+      "il_risk": {
+        "weight": 0.25,
+        "direction": "negative"
+      },
+      "capital_volatility": {
+        "weight": 0.1,
+        "direction": "negative"
+      }
+    },
+    "age_penalty": {
+      "weight": 0.1,
+      "normalized": false,
+      "note": "原始值 0 或 0.05，不参与其余分项的 min-max 归一化，也不参与数据缺失时的权重重新分摊"
+    }
+  },
+  "tiers": [
+    {
+      "tier": "S",
+      "min_score": 0.75
+    },
+    {
+      "tier": "A",
+      "min_score": 0.55
+    },
+    {
+      "tier": "B",
+      "min_score": 0.35
+    },
+    {
+      "tier": "C",
+      "min_score": null
+    }
+  ],
+  "known_issues": [
+    "理论可达分数范围（约 [-0.45, 0.55]，未考虑数据缺失重新分摊）和 S/A/B/C 阈值（S≥0.75）不匹配，S 档在当前公式结构下几乎不可能触发——需要重新标定阈值，或改公式让加分项权重合计归一到 1。",
+    "AgePenalty 不参与归一化，原始值只有 0/0.05，乘 10% 权重后最大实际影响约 0.005，和其名义 10% 权重不成比例。",
+    "CapitalVolatility 依赖 14 天真实 TVL 历史，而 GeckoTerminal 免费层不提供历史 TVL 时间序列（见 1a/1c 已记录的限制），当前候选池目录里这一项的覆盖率结构性偏低，对应权重被系统性重新分摊给其余分项，不是这一项本身没有校准价值。",
+    "ExpectedIL_ref 恒为负数，复合分公式对它的归一化改用绝对值（|ExpectedIL_ref|），这是本次实现对原文档公式的必要解读，不是原文档明确写出的符号约定，接入前需要 alpha-lp 团队确认这个解读符合预期。"
+  ],
+  "source_reports": {
+    "il_model_validation": "apps/lp-backtest/validate/il_model_report.md",
+    "range_backtest": "apps/lp-backtest/validate/range_backtest_report.md",
+    "weight_calibration": "apps/lp-backtest/calibrate/weights_report.md"
+  }
+}

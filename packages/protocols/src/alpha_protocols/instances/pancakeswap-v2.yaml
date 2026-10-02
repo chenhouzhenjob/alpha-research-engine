@@ -1,0 +1,15 @@
+# PancakeSwap V2。2026-09-29 链上核实：用 CREATE2 计算的 WBNB/USDT 交易对地址与 factory.getPair 一致；
+# router.factory() 指向本 factory；_mintFee 常数（8/17）已对照 Sourcify 上交易对合约的源码。
+instance_key: pancakeswap-v2
+family: uniswap_v2_like
+protocol: PancakeSwap
+version: v2
+options:
+  pair_init_code_hash: "0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5"
+  fee_numerator: 8
+  fee_denominator: 17
+deployments:
+  bsc:
+    roles:
+      factory: ["0xca143ce32fe78f1f7019d7d551a6402fc5350c73"]
+      router: ["0x10ed43c718714eb63d5aa57b78b54704e256024e"]

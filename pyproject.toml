@@ -1,0 +1,42 @@
+[project]
+name = "alpha-research"
+version = "0.1.0"
+description = "Alpha 系列研究平台 workspace 根：只做工作区聚合，不放业务代码"
+requires-python = ">=3.11"
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]
+
+[tool.uv.sources]
+alpha-core = { workspace = true }
+alpha-chains = { workspace = true }
+alpha-datasources = { workspace = true }
+alpha-protocols = { workspace = true }
+alpha-storage = { workspace = true }
+alpha-metrics = { workspace = true }
+
+[tool.pyright]
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+extraPaths = [
+  "packages/core/src",
+  "packages/storage/src",
+  "packages/chains/src",
+  "packages/datasources/src",
+  "packages/protocols/src",
+  "packages/metrics/src",
+  "apps/lp-backtest/src",
+  "apps/live-signal/src",
+]
+
+[tool.ruff]
+# 中文注释按字符数计不按显示宽度，稍微放宽避免大量 E501 假阳性。
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pytest>=8.0", "pytest-asyncio>=0.24"]

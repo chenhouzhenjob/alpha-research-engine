@@ -1,0 +1,8 @@
+# 包装原生币（WETH9 实现）。地址从各链的链画像取，不在这里重复写。
+instance_key: wrapped-native
+family: wrapped_native
+protocol: Wrapped Native
+deployments:
+  bsc:      {roles: {wrapped: ["$chain.wrapped_native"]}}   # WBNB
+  ethereum: {roles: {wrapped: ["$chain.wrapped_native"]}}   # WETH
+  base:     {roles: {wrapped: ["$chain.wrapped_native"]}}   # WETH（OP Stack 预部署合约）

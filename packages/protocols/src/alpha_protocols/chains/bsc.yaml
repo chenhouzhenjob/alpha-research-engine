@@ -1,0 +1,19 @@
+# BNB Chain 链画像。字段含义见 alpha_protocols/config/chain_profiles.py。
+# 基础资产地址已于 2026-09-29 用 symbol()/decimals() 链上核实。
+chain: bsc
+vm: evm
+native: {symbol: BNB, decimals: 18}
+wrapped_native: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+gas_model: standard
+create2_variant: standard
+system_tx_rules: []
+provider_slugs: {ankr: bsc}
+assets:
+  - {asset_id: bnb,  address: native}
+  - {asset_id: bnb,  address: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", symbol: WBNB, decimals: 18}
+  - {asset_id: usdt, address: "0x55d398326f99059ff775485246999027b3197955", symbol: USDT, decimals: 18}
+  - {asset_id: usdc, address: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", symbol: USDC, decimals: 18}
+  - {asset_id: busd, address: "0xe9e7cea3dedca5984780bafc599bd69add087d56", symbol: BUSD, decimals: 18}
+  - {asset_id: eth,  address: "0x2170ed0880ac9a755fd29b2688956bd959f933f8", symbol: ETH, decimals: 18}   # Binance-Peg ETH
+  - {asset_id: btc,  address: "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c", symbol: BTCB, decimals: 18}
+  - {asset_id: cake, address: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82", symbol: CAKE, decimals: 18}

@@ -1,0 +1,124 @@
+{
+  "schema_version": 2,
+  "family": "compound_v2_like",
+  "case": "supply_vusdt",
+  "chain": "bsc",
+  "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd",
+  "subject_wallet": "0xaa23f3d025aad24547b553d61485d4ca154fe93e",
+  "note": "vUSDT 存入（Venus 4 字段 Mint）",
+  "tx": {
+    "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd",
+    "block_number": 124641168,
+    "tx_index": 72,
+    "from_address": "0xaa23f3d025aad24547b553d61485d4ca154fe93e",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "value": 0,
+    "input": "0xa0712d68000000000000000000000000000000000000000000000001faf0323151146c6f",
+    "nonce": 782,
+    "gas_price": 50000000,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd",
+    "block_number": 124641168,
+    "tx_index": 72,
+    "from_address": "0xaa23f3d025aad24547b553d61485d4ca154fe93e",
+    "to_address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+    "status": 1,
+    "gas_used": 210322,
+    "effective_gas_price": 50000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0x4dec04e750ca11537cabcd8a9eab06494de08da3735bc8871cd41250e190bc04"
+        ],
+        "data": "0x00000000000000000000000000000000000000000026fc434fdfdd8988b549ca0000000000000000000000000000000000000000000000000294af3ac0ec1d1100000000000000000000000000000000000000000000000014eeb8158d69bbce0000000000000000000000000000000000000000006f2fb6efa2b810e4c1b0cf",
+        "log_index": 529,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      },
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0xfa9d964d891991c113b49e3db1932abd6c67263d387119707aafdd6c4010a3a9",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000aa23f3d025aad24547b553d61485d4ca154fe93e"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012980ef4e159af39d4eea514afd4d05821cd",
+        "log_index": 530,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000aa23f3d025aad24547b553d61485d4ca154fe93e",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000001faf0323151146c6f",
+        "log_index": 531,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+          "0x000000000000000000000000aa23f3d025aad24547b553d61485d4ca154fe93e",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255"
+        ],
+        "data": "0xfffffffffffffffffffffffffffffffffffffffffffffc2bb5415d897ec69f85",
+        "log_index": 532,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      },
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0xb4c03061fb5b7fed76389d5af8f2e0ddb09f8c70d1333abbb62582835e10accb"
+        ],
+        "data": "0x000000000000000000000000aa23f3d025aad24547b553d61485d4ca154fe93e000000000000000000000000000000000000000000000001faf0323151146c6f0000000000000000000000000000000000000000000000000000002010f21ddb000000000000000000000000000000000000000000000000000000b9f4e32ac8",
+        "log_index": 533,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      },
+      {
+        "address": "0xfd5840cd36d94d7229439859c0112a4185bc0255",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000fd5840cd36d94d7229439859c0112a4185bc0255",
+          "0x000000000000000000000000aa23f3d025aad24547b553d61485d4ca154fe93e"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000002010f21ddb",
+        "log_index": 534,
+        "block_number": 124641168,
+        "tx_hash": "0x0b58c94f6c9977617077d9e327c47ad964e114b055b7c2acdf7cb6524203d2cd"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-29T03:01:43+00:00",
+  "subject_state": {
+    "balance_before": 3929660554378082,
+    "balance_after": 3919144454378082,
+    "nonce_before": 782,
+    "nonce_after": 783,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xfd5840cd36d94d7229439859c0112a4185bc0255": {
+      "symbol": "vUSDT",
+      "name": "Venus USDT",
+      "decimals": 8
+    }
+  }
+}

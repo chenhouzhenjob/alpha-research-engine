@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "family": "generic",
+  "case": "erc20_out",
+  "chain": "ethereum",
+  "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6",
+  "subject_wallet": "0x41be1b985efe4c491e12f6ecac519f7917c8ff11",
+  "note": "以太坊 USDT.transfer（非标准 ERC20：不返回 bool）",
+  "tx": {
+    "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6",
+    "block_number": 26080529,
+    "tx_index": 217,
+    "from_address": "0x41be1b985efe4c491e12f6ecac519f7917c8ff11",
+    "to_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "value": 0,
+    "input": "0xa9059cbb000000000000000000000000ccc7d15542c791dd8f557f2e32b8d3e54df14745000000000000000000000000000000000000000000000000000000000d693a40",
+    "nonce": 16,
+    "gas_price": 1733225092,
+    "tx_type": 2,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6",
+    "block_number": 26080529,
+    "tx_index": 217,
+    "from_address": "0x41be1b985efe4c491e12f6ecac519f7917c8ff11",
+    "to_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "status": 1,
+    "gas_used": 41309,
+    "effective_gas_price": 1733225092,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000041be1b985efe4c491e12f6ecac519f7917c8ff11",
+          "0x000000000000000000000000ccc7d15542c791dd8f557f2e32b8d3e54df14745"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000000000d693a40",
+        "log_index": 1230,
+        "block_number": 26080529,
+        "tx_hash": "0xe9ce9a8f1b795d11d5c2c519b3925dccc2dc6270a8a5c2c52f3ce2148febabc6"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-29T03:47:47+00:00",
+  "subject_state": {
+    "balance_before": 15480807480018887,
+    "balance_after": 15409209684693459,
+    "nonce_before": 16,
+    "nonce_after": 17,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 6
+    }
+  }
+}

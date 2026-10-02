@@ -1,0 +1,19 @@
+# Uniswap V2。2026-09-29 链上核实：用 CREATE2 计算的 WETH/USDC 交易对地址与 factory.getPair 一致；
+# router.factory() 指向本 factory；两条链的 feeTo 都已开启；_mintFee 常数（1/5）已对照 Sourcify 上的源码。
+instance_key: uniswap-v2
+family: uniswap_v2_like
+protocol: Uniswap
+version: v2
+options:
+  pair_init_code_hash: "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+  fee_numerator: 1
+  fee_denominator: 5
+deployments:
+  ethereum:
+    roles:
+      factory: ["0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"]
+      router: ["0x7a250d5630b4cf539739df2c5dacb4c659f2488d"]
+  base:
+    roles:
+      factory: ["0x8909dc15e40173ff4699343b6eb8132c65e18ec6"]
+      router: ["0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24"]

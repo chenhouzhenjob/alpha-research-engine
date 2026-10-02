@@ -1,0 +1,95 @@
+{
+  "schema_version": 2,
+  "family": "compound_v2_like",
+  "case": "redeem_vbnb",
+  "chain": "bsc",
+  "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95",
+  "subject_wallet": "0xf3c30fcc95265bbb6719e62383d31e88cc330e29",
+  "note": "vBNB 取出（Compound 原版 3 字段 Redeem），直接调用 vBNB：原生币由推断钩子补齐",
+  "tx": {
+    "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95",
+    "block_number": 124545317,
+    "tx_index": 86,
+    "from_address": "0xf3c30fcc95265bbb6719e62383d31e88cc330e29",
+    "to_address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+    "value": 0,
+    "input": "0x852a12e300000000000000000000000000000000000000000000000006f05b59d3b20000",
+    "nonce": 1277,
+    "gas_price": 50053817,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95",
+    "block_number": 124545317,
+    "tx_index": 86,
+    "from_address": "0xf3c30fcc95265bbb6719e62383d31e88cc330e29",
+    "to_address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+    "status": 1,
+    "gas_used": 668682,
+    "effective_gas_price": 50053817,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+        "topics": [
+          "0x4dec04e750ca11537cabcd8a9eab06494de08da3735bc8871cd41250e190bc04"
+        ],
+        "data": "0x000000000000000000000000000000000000000000006864a1c496d44a77df3f00000000000000000000000000000000000000000000000000131c5733bbf72600000000000000000000000000000000000000000000000015b6513313726581000000000000000000000000000000000000000000000ef8ac6edfe4c68537b4",
+        "log_index": 600,
+        "block_number": 124545317,
+        "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95"
+      },
+      {
+        "address": "0xfd36e2c2a6789db23113685031d7f16329158384",
+        "topics": [
+          "0xfa9d964d891991c113b49e3db1932abd6c67263d387119707aafdd6c4010a3a9",
+          "0x000000000000000000000000a07c5b74c9b40447a954e1466938b865b6bbea36",
+          "0x000000000000000000000000f3c30fcc95265bbb6719e62383d31e88cc330e29"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000705f1c65bbc236ce63b27757eb6c2fd87dba2",
+        "log_index": 601,
+        "block_number": 124545317,
+        "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95"
+      },
+      {
+        "address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000f3c30fcc95265bbb6719e62383d31e88cc330e29",
+          "0x000000000000000000000000a07c5b74c9b40447a954e1466938b865b6bbea36"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000077770c96",
+        "log_index": 602,
+        "block_number": 124545317,
+        "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95"
+      },
+      {
+        "address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+        "topics": [
+          "0xe5b754fb1abb7f01b499791d0b820ae3b6af3424ac1c59768edb53f4ec31a929"
+        ],
+        "data": "0x000000000000000000000000f3c30fcc95265bbb6719e62383d31e88cc330e2900000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000000000000077770c96",
+        "log_index": 603,
+        "block_number": 124545317,
+        "tx_hash": "0x81c9b835f8c81bac07e18d07dff8ea994bcbfa4f872e809038a03d10afd47d95"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-28T15:02:38+00:00",
+  "subject_state": {
+    "balance_before": 500004074806493,
+    "balance_after": 500466533988347299,
+    "nonce_before": 1277,
+    "nonce_after": 1278,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0xa07c5b74c9b40447a954e1466938b865b6bbea36": {
+      "symbol": "vBNB",
+      "name": "Venus BNB",
+      "decimals": 8
+    }
+  }
+}

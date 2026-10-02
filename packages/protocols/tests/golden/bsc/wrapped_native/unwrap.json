@@ -1,0 +1,56 @@
+{
+  "schema_version": 2,
+  "family": "wrapped_native",
+  "case": "unwrap",
+  "chain": "bsc",
+  "tx_hash": "0xed1e64288bc72dccdab8195b09fbcaa53ce950d6b5cb89b6832cd5a95d58d9e5",
+  "subject_wallet": "0x358ad9bbd109ccf0fc5c10ca3bb89d7ea842cea2",
+  "note": "直接调用 WBNB.withdraw",
+  "tx": {
+    "tx_hash": "0xed1e64288bc72dccdab8195b09fbcaa53ce950d6b5cb89b6832cd5a95d58d9e5",
+    "block_number": 124641615,
+    "tx_index": 88,
+    "from_address": "0x358ad9bbd109ccf0fc5c10ca3bb89d7ea842cea2",
+    "to_address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "value": 0,
+    "input": "0x2e1a7d4d000000000000000000000000000000000000000000000000000463fd8271f642",
+    "nonce": 2,
+    "gas_price": 50000000,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0xed1e64288bc72dccdab8195b09fbcaa53ce950d6b5cb89b6832cd5a95d58d9e5",
+    "block_number": 124641615,
+    "tx_index": 88,
+    "from_address": "0x358ad9bbd109ccf0fc5c10ca3bb89d7ea842cea2",
+    "to_address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "status": 1,
+    "gas_used": 30416,
+    "effective_gas_price": 50000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "topics": [
+          "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65",
+          "0x000000000000000000000000358ad9bbd109ccf0fc5c10ca3bb89d7ea842cea2"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000463fd8271f642",
+        "log_index": 655,
+        "block_number": 124641615,
+        "tx_hash": "0xed1e64288bc72dccdab8195b09fbcaa53ce950d6b5cb89b6832cd5a95d58d9e5"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-09-29T03:05:05+00:00",
+  "subject_state": {
+    "balance_before": 62443450000000,
+    "balance_after": 1296763023225026,
+    "nonce_before": 2,
+    "nonce_after": 3,
+    "balance_delta_attributable": true
+  },
+  "tokens": {}
+}

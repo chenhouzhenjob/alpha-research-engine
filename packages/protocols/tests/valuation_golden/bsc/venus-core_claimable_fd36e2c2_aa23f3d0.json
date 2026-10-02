@@ -1,0 +1,15 @@
+{
+  "kind": "venus_claimable",
+  "chain": "bsc",
+  "instance_key": "venus-core",
+  "position_kind": "claimable",
+  "target": "0xfd36e2c2a6789db23113685031d7f16329158384",
+  "owner": "0xaa23f3d025aad24547b553d61485d4ca154fe93e",
+  "block": 124674264,
+  "reads": {
+    "0xfd36e2c2a6789db23113685031d7f16329158384:accrued:0xaa23f3d025aad24547b553d61485d4ca154fe93e": "00000000000000000000000000000000000000000000000000ea3e7d762c0558"
+  },
+  "truth": {
+    "amount": 65933853124724056
+  }
+}

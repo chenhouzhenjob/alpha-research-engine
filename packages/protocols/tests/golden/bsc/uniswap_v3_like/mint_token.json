@@ -1,0 +1,134 @@
+{
+  "schema_version": 2,
+  "family": "uniswap_v3_like",
+  "case": "mint_token",
+  "chain": "bsc",
+  "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "NPM.mint，两边都付 ERC20",
+  "tx": {
+    "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c",
+    "block_number": 62653103,
+    "tx_index": 125,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+    "value": 0,
+    "input": "0x8831645600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000af44a1e76f56ee12adbb7ba8acd3cbd4748881220000000000000000000000000000000000000000000000000000000000000064fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc89cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a2000000000000000000000000000000000000000000000006b9249ad49bdde6a40000000000000000000000000000000000000000000000000000000005f6237d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be0000000000000000000000000000000000000000000000000000000068d80e94",
+    "nonce": 1457,
+    "gas_price": 100000000,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c",
+    "block_number": 62653103,
+    "tx_index": 125,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+    "status": 1,
+    "gas_used": 404042,
+    "effective_gas_price": 100000000,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x000000000000000000000000b67e5eaf770a384ab28029d08b9bc5ebe32beb0f"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000006b9249ad49bdde4bd",
+        "log_index": 460,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x00000000000000000000000046a15b0b27311cedf172ab29e4f4766fbe7f4364"
+        ],
+        "data": "0xfffffffffffffffffffffffffffffffffffffffffffffff946db652b64221b42",
+        "log_index": 461,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      },
+      {
+        "address": "0xaf44a1e76f56ee12adbb7ba8acd3cbd474888122",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x000000000000000000000000b67e5eaf770a384ab28029d08b9bc5ebe32beb0f"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000005f59f31",
+        "log_index": 462,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      },
+      {
+        "address": "0xb67e5eaf770a384ab28029d08b9bc5ebe32beb0f",
+        "topics": [
+          "0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde",
+          "0x00000000000000000000000046a15b0b27311cedf172ab29e4f4766fbe7f4364",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc89c",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a2"
+        ],
+        "data": "0x00000000000000000000000046a15b0b27311cedf172ab29e4f4766fbe7f43640000000000000000000000000000000000000000000000000a5d1e95ae630632000000000000000000000000000000000000000000000006b9249ad49bdde4bd0000000000000000000000000000000000000000000000000000000005f59f31",
+        "log_index": 463,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      },
+      {
+        "address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be",
+          "0x0000000000000000000000000000000000000000000000000000000000420fb6"
+        ],
+        "data": "0x",
+        "log_index": 464,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      },
+      {
+        "address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+        "topics": [
+          "0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f",
+          "0x0000000000000000000000000000000000000000000000000000000000420fb6"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000a5d1e95ae630632000000000000000000000000000000000000000000000006b9249ad49bdde4bd0000000000000000000000000000000000000000000000000000000005f59f31",
+        "log_index": 465,
+        "block_number": 62653103,
+        "tx_hash": "0x8c21f65bcd9e857af43a706d4075d0dd7e0b0ef03d5d5a549f7c7ff03668380c"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2025-09-27T15:59:48+00:00",
+  "subject_state": {
+    "balance_before": 151551277276696473,
+    "balance_after": 151510873076696473,
+    "nonce_before": 1457,
+    "nonce_after": 1458,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364": {
+      "symbol": "PCS-V3-POS",
+      "name": "Pancake V3 Positions NFT-V1",
+      "decimals": null
+    },
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xaf44a1e76f56ee12adbb7ba8acd3cbd474888122": {
+      "symbol": "DUSD",
+      "name": "StandX DUSD",
+      "decimals": 6
+    }
+  }
+}

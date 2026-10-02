@@ -1,0 +1,117 @@
+{
+  "schema_version": 2,
+  "family": "uniswap_v3_like",
+  "case": "collect_only",
+  "chain": "bsc",
+  "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263",
+  "subject_wallet": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+  "note": "单独 collect",
+  "tx": {
+    "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263",
+    "block_number": 74981153,
+    "tx_index": 106,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+    "value": 0,
+    "input": "0xfc6f78650000000000000000000000000000000000000000000000000000000000420fb600000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be00000000000000000000000000000000ffffffffffffffffffffffffffffffff00000000000000000000000000000000ffffffffffffffffffffffffffffffff",
+    "nonce": 1535,
+    "gas_price": 50700233,
+    "tx_type": 0,
+    "mint": null
+  },
+  "receipt": {
+    "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263",
+    "block_number": 74981153,
+    "tx_index": 106,
+    "from_address": "0x05bbf9032f4c829e31a1f1b0b725d77329fad6be",
+    "to_address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+    "status": 1,
+    "gas_used": 148679,
+    "effective_gas_price": 50700233,
+    "contract_address": null,
+    "logs": [
+      {
+        "address": "0xb67e5eaf770a384ab28029d08b9bc5ebe32beb0f",
+        "topics": [
+          "0x0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c",
+          "0x00000000000000000000000046a15b0b27311cedf172ab29e4f4766fbe7f4364",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc89c",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a2"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "log_index": 411,
+        "block_number": 74981153,
+        "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
+      },
+      {
+        "address": "0x55d398326f99059ff775485246999027b3197955",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000b67e5eaf770a384ab28029d08b9bc5ebe32beb0f",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000075991bdd873dc53",
+        "log_index": 412,
+        "block_number": 74981153,
+        "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
+      },
+      {
+        "address": "0xaf44a1e76f56ee12adbb7ba8acd3cbd474888122",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000b67e5eaf770a384ab28029d08b9bc5ebe32beb0f",
+          "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000000000008064f",
+        "log_index": 413,
+        "block_number": 74981153,
+        "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
+      },
+      {
+        "address": "0xb67e5eaf770a384ab28029d08b9bc5ebe32beb0f",
+        "topics": [
+          "0x70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0",
+          "0x00000000000000000000000046a15b0b27311cedf172ab29e4f4766fbe7f4364",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc89c",
+          "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a2"
+        ],
+        "data": "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be000000000000000000000000000000000000000000000000075991bdd873dc53000000000000000000000000000000000000000000000000000000000008064f",
+        "log_index": 414,
+        "block_number": 74981153,
+        "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
+      },
+      {
+        "address": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364",
+        "topics": [
+          "0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01",
+          "0x0000000000000000000000000000000000000000000000000000000000420fb6"
+        ],
+        "data": "0x00000000000000000000000005bbf9032f4c829e31a1f1b0b725d77329fad6be000000000000000000000000000000000000000000000000075991bdd873dc53000000000000000000000000000000000000000000000000000000000008064f",
+        "log_index": 415,
+        "block_number": 74981153,
+        "tx_hash": "0x5954c3d179d29202e461b467268c1a41ba704c47667d20a1d6f733f1bfe28263"
+      }
+    ],
+    "l1_fee": null
+  },
+  "block_time": "2026-01-12T17:16:52+00:00",
+  "subject_state": {
+    "balance_before": 118153286189984988,
+    "balance_after": 118145748130042781,
+    "nonce_before": 1535,
+    "nonce_after": 1536,
+    "balance_delta_attributable": true
+  },
+  "tokens": {
+    "0x55d398326f99059ff775485246999027b3197955": {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 18
+    },
+    "0xaf44a1e76f56ee12adbb7ba8acd3cbd474888122": {
+      "symbol": "DUSD",
+      "name": "StandX DUSD",
+      "decimals": 6
+    }
+  }
+}
