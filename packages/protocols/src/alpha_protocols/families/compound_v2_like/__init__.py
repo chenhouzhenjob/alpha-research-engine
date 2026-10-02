@@ -9,10 +9,13 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from eth_abi import decode as abi_decode
 from eth_utils import keccak
 
 from ...config._common import Address
+from ...decoding.models import PositionCategory, PositionKind
 from ...identification.plans import DiscoveryPlan, RegistryCall
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import BORROW, LIQUIDATE, MINT, REDEEM, REPAY, CompoundV2Decoder
@@ -32,6 +35,13 @@ class CompoundV2Family(ProtocolFamily):
     roles = frozenset({"comptroller"})  # Comptroller（Unitroller 代理地址）；市场由它的 getAllMarkets() 发现
     options_model = CompoundV2Options
     signature_topics = frozenset({*MINT, *REDEEM, BORROW, REPAY, LIQUIDATE})
+    position_categories = MappingProxyType(
+        {
+            PositionKind.SHARE: PositionCategory.LENDING_SUPPLY,
+            PositionKind.DEBT: PositionCategory.LENDING_DEBT,
+            PositionKind.CLAIMABLE: PositionCategory.CLAIMABLE_REWARD,
+        }
+    )
 
     @classmethod
     def decoder(cls, deployment):

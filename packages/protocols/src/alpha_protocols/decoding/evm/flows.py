@@ -1,4 +1,7 @@
-"""第一段通用解码的 EVM 实现：从交易和回执里提取主体钱包参与的资产流水和授权（纯函数）。
+"""第一段通用解码的 EVM 实现：提取主体钱包参与的资产流水和授权（纯函数）。
+
+两个入口共用同一套编号顺序：`extract` 读回执日志（回执路径），`extract_from_transfers` 读地址索引源的
+代币转账（索引路径，第三方发起、只涉及转账的交易不取回执，M3 规划 5.2）。
 
 只提取 from 或 to 等于主体钱包的流水：钱包视角之外的转账（例如聚合器路由内部在池子之间的搬运）
 不影响钱包的资产，家族需要时直接读回执日志。不看金额大小，不丢弃任何金额（设计文档 G3）。
@@ -13,10 +16,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
+from alpha_core.ports import AddressTransfer, TransferKind
 from eth_abi import decode as abi_decode
 from eth_utils import keccak
 
@@ -160,7 +164,7 @@ def extract(
     rules: ChainRules,
     internal: Sequence[InternalTransfer] | None = None,
 ) -> ExtractedTx:
-    """提取主体钱包参与的资产流水和授权。
+    """回执路径：从交易和回执日志提取主体钱包参与的资产流水和授权。
 
     @param subject 主体钱包，小写
     @param rules 链画像声明的 gas 模型和系统交易规则
@@ -168,6 +172,82 @@ def extract(
     @raises ValueError 计算 gas 缺少必要字段
     """
     subject = subject.lower()
+    approvals: list[Approval] = []
+    malformed: list[int] = []
+
+    def from_logs(b: _Builder) -> None:
+        for log in sorted(receipt.logs, key=lambda lg: lg.log_index):
+            if not _log_flows(log, subject, b):
+                malformed.append(log.log_index)
+            got = _approval(log, subject)
+            if got is False:
+                malformed.append(log.log_index)
+            elif got is not None:
+                approvals.append(got)
+
+    flows = _assemble(tx, receipt, subject, rules, from_logs, internal)
+    return ExtractedTx(flows, tuple(approvals), tuple(malformed))
+
+
+def extract_from_transfers(
+    tx: TxInfo,
+    receipt: TxReceipt,
+    subject: str,
+    rules: ChainRules,
+    transfers: Sequence[AddressTransfer],
+    internal: Sequence[InternalTransfer] | None = None,
+) -> ExtractedTx:
+    """索引路径：用地址索引源给出的代币转账代替回执日志提取流水（M3 规划 5.4）。
+
+    与回执路径共用流水编号顺序，所以同一笔交易两条路径产出的钱包侧流水逐条相同（有等价性测试）。
+    索引源不给授权和其他日志，所以不产出授权、也没有格式错误的日志。
+
+    @param receipt 只用到 status、gas_used、effective_gas_price、l1_fee、contract_address，由索引字段构造，
+        logs 为空
+    @param transfers 这笔交易里和钱包有关的代币转账；原生币（external / internal）条目忽略：
+        交易 value 取自 tx，内部转账由 internal 参数给出
+    @raises ValueError 计算 gas 缺少必要字段，或代币转账缺日志序号
+    """
+    subject = subject.lower()
+    token_kinds = {
+        TransferKind.ERC20: AssetFlowKind.ERC20,
+        TransferKind.ERC721: AssetFlowKind.ERC721,
+        TransferKind.ERC1155: AssetFlowKind.ERC1155,
+    }
+    tokens = [t for t in transfers if t.kind in token_kinds]
+    for t in tokens:
+        if t.log_index is None or t.token_address is None:
+            raise ValueError(f"{tx.tx_hash} 的代币转账缺日志序号或合约地址")
+
+    def from_transfers(b: _Builder) -> None:
+        # 与回执路径一致：按日志序号升序，ERC1155 批量转账按批内顺序展开
+        for t in sorted(tokens, key=lambda t: (t.log_index, t.batch_index)):
+            frm, to = t.from_address.lower(), t.to_address.lower()
+            if subject not in (frm, to):
+                continue
+            b.add(
+                token_kinds[t.kind],
+                (t.token_address or "").lower(),
+                1 if t.kind is TransferKind.ERC721 else t.amount_raw,
+                frm,
+                to,
+                FlowSource.LOG,
+                token_id=t.token_id,
+                log_index=t.log_index,
+            )
+
+    return ExtractedTx(_assemble(tx, receipt, subject, rules, from_transfers, internal), (), ())
+
+
+def _assemble(
+    tx: TxInfo,
+    receipt: TxReceipt,
+    subject: str,
+    rules: ChainRules,
+    token_step: Callable[[_Builder], None],
+    internal: Sequence[InternalTransfer] | None,
+) -> tuple[AssetFlow, ...]:
+    """按模块说明里的顺序拼出流水；代币部分由 token_step 提供（回执日志或索引转账）。"""
     b = _Builder()
     succeeded = receipt.status != 0
     sender = tx.from_address
@@ -178,17 +258,8 @@ def extract(
     if succeeded and tx.value and subject in (sender, recipient):
         b.add(AssetFlowKind.NATIVE, NATIVE, tx.value, sender, recipient, FlowSource.TX)
 
-    approvals: list[Approval] = []
-    malformed: list[int] = []
     if succeeded:
-        for log in sorted(receipt.logs, key=lambda lg: lg.log_index):
-            if not _log_flows(log, subject, b):
-                malformed.append(log.log_index)
-            got = _approval(log, subject)
-            if got is False:
-                malformed.append(log.log_index)
-            elif got is not None:
-                approvals.append(got)
+        token_step(b)
         for item in internal or ():
             if subject in (item.from_address, item.to_address) and item.amount_raw > 0:
                 b.add(
@@ -204,4 +275,4 @@ def extract(
         fee = gas_paid(tx, receipt, rules)
         if fee:
             b.add(AssetFlowKind.GAS, NATIVE, fee, sender, GAS_SINK, FlowSource.TX)
-    return ExtractedTx(tuple(b.flows), tuple(approvals), tuple(malformed))
+    return tuple(b.flows)

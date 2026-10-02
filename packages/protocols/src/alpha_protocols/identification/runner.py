@@ -4,7 +4,8 @@
 1. 实例配置里写明的角色地址（零 RPC）；
 2. 已有表（例如 V3 的 pool_candidates，由调用方以 `known_components` 提供盐的组成部分，本地 CREATE2 校验，零 RPC）；
 3. CREATE2 校验：对剩下的地址批量读盐的组成部分（Multicall），本地算地址比对；
-4. 字节码：剩下的批量 `eth_getCode`，为空是 EOA，非空记为 unknown（带 code_hash，交给第二阶段和 M4）。
+4. 字节码：剩下的批量 `eth_getCode`，为空是 EOA；EIP-7702 委托指示符（`0xef0100…`）也记为 EOA（evidence 带委托目标）；
+   其余非空记为 unknown（带 code_hash，交给第二阶段和 M4）。
 
 注册表发现（Venus 的 getAllMarkets）是"一次列出全部"，由 `discover_registries` 单独执行。
 """
@@ -123,12 +124,23 @@ def identify(
             continue  # 查询失败：不记录，下次再识别
         if code in ("0x", ""):
             found[a] = ContractRecord(chain.value, a, "eoa", "code")
+        elif (delegate := eip7702_delegate(code)) is not None:
+            # EIP-7702 委托过的 EOA：代码只是一个指向实现合约的指示符，账户仍由私钥控制，资金往来按 EOA 处理
+            found[a] = ContractRecord(chain.value, a, "eoa", "code", evidence={"eip7702_delegate": delegate})
         else:
             found[a] = ContractRecord(chain.value, a, "unknown", "code", code_hash="0x" + keccak(hexstr=code).hex())
 
     if found:
         store.upsert_many(list(found.values()))
     return {**known, **found}
+
+
+def eip7702_delegate(code: str) -> str | None:
+    """EIP-7702 委托指示符（`0xef0100` + 20 字节实现地址，共 23 字节）里的实现地址；不是委托指示符时返回 None。"""
+    code = code.lower()
+    if len(code) == 2 + 46 and code.startswith("0xef0100"):
+        return "0x" + code[8:]
+    return None
 
 
 def _create2_record(chain: Chain, address: str, rule: Create2Rule, values: tuple, source: str) -> ContractRecord:

@@ -181,6 +181,20 @@ class PositionKind(StrEnum):
     CLAIMABLE = "claimable"  # 待领奖励：尚未到账的奖励和手续费
 
 
+class PositionCategory(StrEnum):
+    """持仓类型：分析层（持仓归组、记账、特征）认识的业务分类，由家族把自己的持仓形态映射过来（M3 规划 5.6）。
+
+    持仓形态（PositionKind）描述"怎么持有、怎么估值"，持仓类型描述"这是什么业务"。分析层只认持仓类型，
+    不认识任何具体家族；新家族只要声明映射，分析层不改代码。
+    """
+
+    CONCENTRATED_LP = "concentrated_lp"  # 集中流动性做市仓位（V3 NFT），有价格区间
+    FUNGIBLE_LP = "fungible_lp"  # 全区间做市份额（V2 LP token）
+    LENDING_SUPPLY = "lending_supply"  # 借贷协议里的存款（vToken、cToken）
+    LENDING_DEBT = "lending_debt"  # 借贷协议里的负债，估值为负
+    CLAIMABLE_REWARD = "claimable_reward"  # 待领取的协议奖励（Venus 的 XVS）
+
+
 @dataclass(frozen=True)
 class PositionRef:
     """一个持仓的引用，也是估值的输入。同一个协议在不同链上的持仓是不同的持仓。"""

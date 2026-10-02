@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from eth_utils import keccak
 from pydantic import Field
 
+from ...decoding.models import PositionCategory, PositionKind
 from ...identification.plans import Create2Rule, DiscoveryPlan
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import PAIR_BURN, PAIR_MINT, PAIR_SWAP, PAIR_SYNC, UniswapV2Decoder
@@ -31,6 +34,7 @@ class UniswapV2Family(ProtocolFamily):
     roles = frozenset({"factory", "router"})  # factory：工厂；router：Router02
     options_model = UniswapV2Options
     signature_topics = frozenset({PAIR_MINT, PAIR_BURN, PAIR_SWAP, PAIR_SYNC})
+    position_categories = MappingProxyType({PositionKind.SHARE: PositionCategory.FUNGIBLE_LP})
 
     @classmethod
     def decoder(cls, deployment):

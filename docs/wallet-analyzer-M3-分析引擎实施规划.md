@@ -8,6 +8,7 @@
 
 | 步骤 | 状态 | 说明 |
 |---|---|---|
+| 4 `alpha_protocols` 补充 | ✅ 2026-10-02（未提交） | `PositionCategory` 枚举 + 家族声明 `position_categories`（V3 → 集中流动性、V2 → 全区间 LP、Venus → 存款 / 负债 / 待领奖励），`runtime.position_categories_for / position_category`；`alpha_core.ports.AddressTransfer / TransferKind`（storage 改为复用同一枚举）；`flows.extract` 拆出共用骨架，新增 `extract_from_transfers`、`decode_evm_transfers`、`runtime.decode_from_transfers / internal_from_transfers`；识别第一层把 EIP-7702 委托指示符记为 `eoa`。等价性测试覆盖全部 62 个金标准样本。实现中的细化见 5.4 末尾 |
 | 3 迁移 0009、仓储、锁 | ✅ 2026-10-02（未提交） | 迁移 `0009_wallet_data`（6 张表，本地库往返验证通过）、ORM 模型、仓储 `wallets`（含覆盖区间合并和 `uncovered` 纯函数）/ `wallet_transfers` / `wallet_decodes`（事件 + 摘要同事务整体替换）/ `wallet_sync_jobs`（建任务冲突抛 `ActiveJobExistsError`，在 savepoint 里回滚）、`alpha_storage.locks`（会话级 advisory lock），已同步 `SCHEMA.md`；12 个新测试。实现中的细化见第 6 节末尾 |
 
 ## 1. 目标与原则
@@ -171,6 +172,11 @@ graph TB
 - **上下文组装**：token 元数据（`tokens`）、识别结果（`contract_registry` + 注册表发现）、ABI 和签名（`abi_cache`，第一遍解码后只为未识别合约查询，沿用 M2 冒烟的做法）。
 - **写入**：一笔交易的事件整体替换（先删 `(chain, tx_hash, subject_wallet)` 的旧事件，再写新的），和 `wallet_tx_decodes` 同一事务。
 - **重新解码**：`wallet-analyzer redecode <addr>` 只读库里的 `chain_txs`、`chain_logs`、`wallet_transfers`，零 RPC；可以只重解 `decoder_version` 落后的交易（`--stale-only`，默认）。家族版本号升级后跑一次即可。
+- **步骤 4 实现中的细化**：
+  - 等价性测试用全部 62 个金标准样本（不只第三方交易）：把回执里的转账日志还原成索引形态，回执去掉日志后走索引路径，与不跑家族解码的回执路径比较，钱包侧流水逐条相同、资产事件按顺序逐条相同；
+  - 两条路径的事件 `seq` 可能错位：回执路径里授权事件也占交易内序号，索引路径没有授权。`seq` 只要求同一路径内稳定，一笔交易走哪条路径由规划器固定；以后加人工修正（第二阶段）时，修正记录要连同解码路径一起定位；
+  - 索引路径不产出授权事件：第三方交易里钱包作为 owner 的 `Approval`（例如投毒时 transferFrom 把额度改成 0）会丢失，只影响信息事件，不影响资产和记账；
+  - ERC1155 批量转账一条日志里有多笔，去重键改为 `log:<日志序号>:<批内位置>`，否则同一条日志的后几笔会被主键冲突静默丢掉（已同步 `SCHEMA.md`）。
 
 ### 5.5 定价器（`pricing/`）
 

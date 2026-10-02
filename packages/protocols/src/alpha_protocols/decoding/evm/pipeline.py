@@ -1,6 +1,7 @@
 """EVM 交易的解码入口（纯函数）。
 
-流程（规划 5.4）：
+回执路径 `decode_evm_tx` 的流程（规划 5.4）；索引路径 `decode_evm_transfers` 只有第 1 步（改读索引转账）、
+第 3 步和第 5 步：
 1. `flows.extract`：提取主体钱包参与的资产流水和授权，入流水账；
 2. `dispatch.run_families`：各协议实例的解码器推断流水、认领流水、产出带协议语义的事件；
 3. 兜底：未认领的流水转成 transfer / receive / fee / bridge 事件；授权转成 informational/approve；
@@ -17,6 +18,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 from alpha_core.chain_data import RawLog, TxInfo, TxReceipt
+from alpha_core.ports import AddressTransfer
 
 from ..claims import FlowLedger
 from ..context import DecodeContext
@@ -33,7 +35,7 @@ from ..models import (
 )
 from .abi_logs import decode_with_contract_abi, decode_with_signature
 from .dispatch import FamilyDecoder, run_families
-from .flows import TOKEN_STANDARD_TOPICS, Approval, extract
+from .flows import TOKEN_STANDARD_TOPICS, Approval, extract, extract_from_transfers
 from .rules import ChainRules
 
 ZERO_ADDRESS = "0x" + "0" * 40  # EVM 上 token 铸币的来源地址
@@ -148,6 +150,53 @@ def decode_evm_tx(
         unclaimed_flow_ids=tuple(f.flow_id for f in ledger.flows if f.flow_id not in claimed),
         unknown_contracts=tuple(unknown),
         warnings=tuple(warnings),
+    )
+
+
+def decode_evm_transfers(
+    tx: TxInfo,
+    receipt: TxReceipt,
+    transfers: Sequence[AddressTransfer],
+    subject: str,
+    ctx: DecodeContext,
+    rules: ChainRules,
+    *,
+    internal: Sequence[InternalTransfer] | None = None,
+) -> DecodedTx:
+    """索引路径：只凭地址索引源的转账解码一笔交易（M3 规划 5.4），产出 T0 事件。
+
+    用于不取回执的交易（第三方发起、只涉及转账，以及标准 gas 模型下钱包发起的普通原生币转账）。
+    与回执路径共用流水账、兜底和风险标记，所以资产事件和回执路径不走家族解码时逐条相同；
+    没有日志可读，因此不产出授权事件和通用 ABI 解码的事件，也不跑家族解码。
+
+    @param receipt 由索引字段构造的回执（status、gas_used、effective_gas_price；logs 为空）
+    @param transfers 这笔交易里和钱包有关的代币转账（原生币条目忽略，见 `extract_from_transfers`）
+    @param internal 内部交易；None 表示数据源不可用
+    @raises ValueError 计算 gas 缺少必要字段，或代币转账缺日志序号
+    @raises TaxonomyError 产出的事件不符合分类表（说明规则有 bug）
+    """
+    subject = subject.lower()
+    extracted = extract_from_transfers(tx, receipt, subject, rules, transfers, internal)
+    ledger = FlowLedger(extracted.flows, internal_available=internal is not None)
+    drafts = fallback_events(
+        ledger.unclaimed(),
+        tx_hash=tx.tx_hash,
+        tx_sender=tx.from_address,
+        subject=subject,
+        ctx=ctx,
+        mint_source=ZERO_ADDRESS,
+    )
+    events = finalize(drafts)
+    claimed = {i for e in events for i in e.claimed_flow_ids}
+    return DecodedTx(
+        chain=ctx.chain,
+        tx_hash=tx.tx_hash,
+        subject_wallet=subject,
+        succeeded=receipt.status != 0,
+        events=events,
+        flows=ledger.flows,
+        unclaimed_flow_ids=tuple(f.flow_id for f in ledger.flows if f.flow_id not in claimed),
+        warnings=tuple(ledger.warnings),
     )
 
 

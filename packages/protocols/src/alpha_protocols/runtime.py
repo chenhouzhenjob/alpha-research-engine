@@ -14,15 +14,22 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from alpha_core.chain_data import TxInfo, TxReceipt
-from alpha_core.ports import ContractRecord
+from alpha_core.ports import AddressTransfer, ContractRecord, TransferKind
 from alpha_core.types import Chain
 
 from .config.chain_profiles import chain_profiles
 from .config.instances import InstanceRegistry, instance_registry
 from .decoding.context import ContractIdentity, DecodeContext
 from .decoding.evm.dispatch import FamilyDecoder
-from .decoding.evm.pipeline import decode_evm_tx
-from .decoding.models import DecodedTx, InternalTransfer, TokenMeta
+from .decoding.evm.pipeline import decode_evm_transfers, decode_evm_tx
+from .decoding.models import (
+    DecodedTx,
+    InternalTransfer,
+    PositionCategory,
+    PositionKind,
+    PositionRef,
+    TokenMeta,
+)
 from .families import FAMILIES
 from .families.base import ProtocolFamily
 from .valuation.dispatch import Reader, value_positions
@@ -102,6 +109,66 @@ def decode_tx(
         decoders=decoders_for(chain, registry),
         internal=internal,
     )
+
+
+def decode_from_transfers(
+    chain: Chain,
+    tx: TxInfo,
+    receipt: TxReceipt,
+    transfers: Sequence[AddressTransfer],
+    subject: str,
+    *,
+    ctx: DecodeContext | None = None,
+    internal: Sequence[InternalTransfer] | None = None,
+    registry: InstanceRegistry | None = None,
+) -> DecodedTx:
+    """索引路径：只凭地址索引源的转账解码一笔交易（T0），不需要回执日志。
+
+    @param receipt 由索引字段构造的回执（status、gas_used、effective_gas_price；logs 为空）
+    @param transfers 这笔交易里和钱包有关的转账（原生币条目忽略，内部转账用 internal 传）
+    @param internal 内部交易；None 表示数据源不可用。可以用 `internal_from_transfers` 从索引结果转换
+    """
+    return decode_evm_transfers(
+        tx,
+        receipt,
+        transfers,
+        subject,
+        ctx or decode_context(chain, registry=registry),
+        chain_profiles()[chain].rules,
+        internal=internal,
+    )
+
+
+def internal_from_transfers(transfers: Iterable[AddressTransfer]) -> list[InternalTransfer]:
+    """从地址索引源 / 内部交易源的结果里取出内部转账，保持原顺序；回执路径和索引路径都用它组装 internal。"""
+    return [
+        InternalTransfer(t.from_address.lower(), t.to_address.lower(), t.amount_raw)
+        for t in transfers
+        if t.kind is TransferKind.INTERNAL and t.amount_raw > 0
+    ]
+
+
+def position_categories_for(
+    chain: Chain,
+    registry: InstanceRegistry | None = None,
+    families: Mapping[str, type[ProtocolFamily]] = FAMILIES,
+) -> dict[str, Mapping[PositionKind, PositionCategory]]:
+    """该链上各实例的"持仓形态 → 持仓类型"映射，按实例键索引；没有持仓的家族映射为空。"""
+    registry = registry or instance_registry()
+    return {d.instance_key: families[d.family].position_categories for d in registry.deployments_on(chain)}
+
+
+def position_category(
+    position_key: str, categories: Mapping[str, Mapping[PositionKind, PositionCategory]]
+) -> PositionCategory | None:
+    """持仓键对应的持仓类型；实例未配置或家族没有声明这种形态时返回 None（分析层按未分类处理）。
+
+    @param categories `position_categories_for` 的结果
+    @raises ValueError 持仓键格式不对
+    """
+    kind = PositionRef.kind_of(position_key)  # 同时校验键的格式
+    instance_key = position_key.split(":", 3)[1]
+    return categories.get(instance_key, {}).get(kind)
 
 
 def valuers_for(

@@ -4,15 +4,20 @@
 以及（后续步骤补上的）怎么解码、怎么发现合约、怎么估值。具体协议（PancakeSwap V2、Uniswap V2……）
 是家族的实例，只写配置不写代码。
 
-接口：配置相关部分、解码器（`decoder`）、估值器（`valuer`）、合约发现方式（`discovery`）。
+接口：配置相关部分、解码器（`decoder`）、估值器（`valuer`）、合约发现方式（`discovery`）、
+持仓形态到持仓类型的映射（`position_categories`）。
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, ConfigDict
+
+from ..decoding.models import PositionCategory, PositionKind
 
 if TYPE_CHECKING:
     from ..config.chain_profiles import ChainProfile
@@ -36,6 +41,8 @@ class ProtocolFamily(ABC):
     roles: ClassVar[frozenset[str]]  # 实例配置里允许的合约角色，例如 {"factory", "router"}
     options_model: ClassVar[type[FamilyOptions]] = FamilyOptions  # 实例配置项的 schema
     signature_topics: ClassVar[frozenset[str]] = frozenset()  # 特征事件的 topic0，第二阶段签名匹配识别分叉用
+    # 持仓形态 → 持仓类型；家族没有持仓（包装原生币、聚合器）时为空。分析层靠它归类，不认识具体家族
+    position_categories: ClassVar[Mapping[PositionKind, PositionCategory]] = MappingProxyType({})
 
     @classmethod
     def decoder_version(cls) -> str:

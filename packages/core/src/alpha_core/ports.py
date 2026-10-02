@@ -177,3 +177,52 @@ class ContractRegistryStore(Protocol):
     def upsert_many(self, records: list[ContractRecord]) -> None:
         """写入识别结果；已是 confirmed 的记录不会被覆盖。"""
         ...
+
+
+class TransferKind(StrEnum):
+    """地址索引源、内部交易源返回的一条转账的资产形态（与 `wallet_transfers.kind` 取值一致）。"""
+
+    EXTERNAL = "external"  # 交易本身携带的原生币（tx.value）
+    INTERNAL = "internal"  # 合约内部调用转出的原生币，回执里没有日志
+    ERC20 = "erc20"  # 同质化代币
+    ERC721 = "erc721"  # 非同质化代币，数量恒为 1
+    ERC1155 = "erc1155"  # 多代币标准，带编号和数量
+
+
+@dataclass(frozen=True)
+class AddressTransfer:
+    """地址索引源或内部交易源给出的一条转账（不带视角；方向由使用方按钱包地址判断）。
+
+    地址小写、带 0x；数量为最小单位的原始整数（设计文档 G3，不做精度换算）。
+    """
+
+    tx_hash: str
+    block_number: int
+    kind: TransferKind
+    from_address: str
+    to_address: str
+    amount_raw: int  # ≥0；ERC721 为 1
+    token_address: str | None = None  # 代币合约；原生币为 None
+    token_id: int | None = None  # ERC721 / ERC1155 的编号；其他为 None
+    log_index: int | None = None  # 代币转账所在日志的序号；原生币为 None
+    batch_index: int = 0  # ERC1155 批量转账在同一条日志里的位置（从 0 开始）；其他为 0
+    trace_id: str | None = None  # 内部转账在交易内的调用路径或数据源给的序号；其他为 None
+
+    @property
+    def transfer_key(self) -> str:
+        """交易内去重键（`wallet_transfers.transfer_key`）。
+
+        @raises ValueError 代币转账缺日志序号，或内部转账缺调用标识
+        """
+        if self.kind is TransferKind.EXTERNAL:
+            return "tx"
+        if self.kind is TransferKind.INTERNAL:
+            if self.trace_id is None:
+                raise ValueError(f"{self.tx_hash} 的内部转账缺调用标识")
+            return f"internal:{self.trace_id}"
+        if self.log_index is None:
+            raise ValueError(f"{self.tx_hash} 的代币转账缺日志序号")
+        # ERC1155 批量转账一条日志里有多笔，带上批内位置才不会互相覆盖
+        return (
+            f"log:{self.log_index}:{self.batch_index}" if self.kind is TransferKind.ERC1155 else f"log:{self.log_index}"
+        )

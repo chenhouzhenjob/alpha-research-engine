@@ -1,4 +1,7 @@
-"""地址视角转账仓储（`wallet_transfers`）。索引源和内部交易源的原始结果不可变，重复写入忽略。"""
+"""地址视角转账仓储（`wallet_transfers`）。索引源和内部交易源的原始结果不可变，重复写入忽略。
+
+资产形态 `TransferKind` 定义在 `alpha_core.ports`（与数据源共用），这里重新导出。
+"""
 
 from __future__ import annotations
 
@@ -6,24 +9,17 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 
+from alpha_core.ports import TransferKind
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ..models import WalletTransferRow
 
+__all__ = ["TransferDirection", "TransferKind", "TransferRecord", "WalletTransferRepository"]
+
 # 单条 INSERT 的行数上限：Postgres 一条语句最多 65535 个绑定参数，本表 13 列
 _CHUNK = 2000
-
-
-class TransferKind(StrEnum):
-    """转账的资产形态。"""
-
-    EXTERNAL = "external"  # 交易本身携带的原生币（tx.value）
-    INTERNAL = "internal"  # 合约内部调用转出的原生币，回执里没有日志
-    ERC20 = "erc20"  # 同质化代币
-    ERC721 = "erc721"  # 非同质化代币，数量恒为 1
-    ERC1155 = "erc1155"  # 多代币标准，带编号和数量
 
 
 class TransferDirection(StrEnum):
@@ -40,7 +36,7 @@ class TransferRecord:
 
     wallet_address: str  # 视角钱包
     tx_hash: str
-    transfer_key: str  # 交易内去重键：tx / log:<日志序号> / internal:<调用路径或序号>
+    transfer_key: str  # 交易内去重键，见 AddressTransfer.transfer_key
     kind: TransferKind
     token_address: str | None  # 原生币为 None
     token_id: int | None  # NFT 编号；同质化代币为 None

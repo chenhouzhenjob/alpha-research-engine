@@ -8,10 +8,13 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from eth_abi import encode as abi_encode
 from eth_utils import keccak
 from pydantic import Field
 
+from ...decoding.models import PositionCategory, PositionKind
 from ...identification.plans import Create2Rule, DiscoveryPlan
 from ..base import FamilyOptions, ProtocolFamily
 from .decoder import DECREASE, INCREASE, NPM_COLLECT, UniswapV3Decoder
@@ -35,6 +38,7 @@ class UniswapV3Family(ProtocolFamily):
     roles = frozenset({"factory", "pool_deployer", "position_manager"})
     options_model = UniswapV3Options
     signature_topics = frozenset({POOL_CREATED, INCREASE, DECREASE, NPM_COLLECT})
+    position_categories = MappingProxyType({PositionKind.NFT: PositionCategory.CONCENTRATED_LP})
 
     @classmethod
     def decoder(cls, deployment):

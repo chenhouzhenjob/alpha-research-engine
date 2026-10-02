@@ -530,7 +530,7 @@ token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的�
 | chain | VARCHAR(16) | 否 | 无 | 联合主键之一 |
 | wallet_address | VARCHAR(42) | 否 | 无 | 从哪个钱包的视角查到的；联合主键之一 |
 | tx_hash | VARCHAR(66) | 否 | 无 | 所属交易；联合主键之一 |
-| transfer_key | VARCHAR(64) | 否 | 无 | 交易内去重键：交易本身为 `tx`，代币转账为 `log:<日志序号>`，内部转账为 `internal:<调用路径或序号>`；联合主键之一 |
+| transfer_key | VARCHAR(64) | 否 | 无 | 交易内去重键（`AddressTransfer.transfer_key`）：交易本身为 `tx`，ERC20 / ERC721 为 `log:<日志序号>`，ERC1155 为 `log:<日志序号>:<批内位置>`（批量转账一条日志有多笔），内部转账为 `internal:<调用路径或序号>`；联合主键之一 |
 | kind | VARCHAR(16) | 否 | 无 | 资产形态，取值见下方枚举 |
 | token_address | VARCHAR(42) | 是 | NULL | 代币合约；原生币（`external` / `internal`）为 NULL |
 | token_id | NUMERIC(78,0) | 是 | NULL | NFT 编号；同质化代币和原生币为 NULL |
