@@ -293,3 +293,49 @@ def load_quote(
         start_ms=start_ms,
         end_ms=end_ms,
     )
+
+
+def load_etf_iopv(
+    data_dir: str | Path,
+    *,
+    venue: str | None = None,
+    market_type: str | None = None,
+    symbol_raw: str | None = None,
+    source: str | None = None,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+) -> list[dict[str, Any]]:
+    """加载 ETF IOPV / 日终 NAV（仅扫描 canonical/etf_iopv）。"""
+    files = glob_canonical(data_dir, "etf_iopv")
+    if not files:
+        return []
+    file_list = ", ".join(f"'{p}'" for p in files)
+    where = ["1=1"]
+    params: list[Any] = []
+    if venue:
+        where.append("venue = ?")
+        params.append(venue)
+    if market_type:
+        where.append("market_type = ?")
+        params.append(market_type)
+    if symbol_raw:
+        where.append("symbol_raw = ?")
+        params.append(symbol_raw)
+    if source:
+        where.append("source = ?")
+        params.append(source)
+    if start_ms is not None:
+        where.append("ts_event_ms >= ?")
+        params.append(start_ms)
+    if end_ms is not None:
+        where.append("ts_event_ms < ?")
+        params.append(end_ms)
+    con = _connect(data_dir)
+    sql = f"""
+    SELECT * FROM read_parquet([{file_list}])
+    WHERE {' AND '.join(where)}
+    ORDER BY venue, symbol_raw, ts_event_ms
+    """
+    cur = con.execute(sql, params)
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, row)) for row in cur.fetchall()]

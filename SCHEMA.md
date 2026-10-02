@@ -14,6 +14,7 @@
 | funding                  | `[data/canonical/funding/](data/canonical/funding/)`         | Parquet |
 | fundamental              | `[data/canonical/fundamental/](data/canonical/fundamental/)` | Parquet |
 | macro                    | `[data/canonical/macro/](data/canonical/macro/)`             | Parquet |
+| etf_iopv                 | `[data/canonical/etf_iopv/](data/canonical/etf_iopv/)`       | Parquet |
 | instruments / watermarks | `[data/catalog.sqlite](data/catalog.sqlite)`                 | SQLite  |
 | 原始接口响应                   | `[data/raw/](data/raw/)`                                     | JSONL   |
 
@@ -31,13 +32,13 @@ data/raw/{venue}/{endpoint}/date={YYYY-MM-DD}/part.jsonl
 
 ## 公共信封（Envelope）
 
-所有 canonical 行（ohlcv / trade / quote / funding / fundamental / macro）共享以下字段。
+所有 canonical 行（ohlcv / trade / quote / funding / fundamental / macro / etf_iopv）共享以下字段。
 
 
 | 字段               | 类型   | 说明                                                                                        |
 | ---------------- | ---- | ----------------------------------------------------------------------------------------- |
 | `schema_version` | int  | 行级 schema 版本，当前为 `1`                                                                      |
-| `dataset`        | str  | 数据集名：`ohlcv` / `trade` / `quote` / `funding` / `fundamental` / `macro`                    |
+| `dataset`        | str  | 数据集名：`ohlcv` / `trade` / `quote` / `funding` / `fundamental` / `macro` / `etf_iopv` |
 | `venue`          | str  | 数据源，如 `binance`、`hyperliquid`、`alpaca`、`finnhub`、`fred`                                   |
 | `market_type`    | str  | 市场类型：`perp` / `stock` / `macro`                                                           |
 | `instrument_id`  | str  | 单源稳定 ID：`{venue}:{market_type}:{symbol_raw}`，例 `binance:perp:ETHUSDT`、`alpaca:stock:AAPL` |
@@ -183,6 +184,28 @@ data/raw/{venue}/{endpoint}/date={YYYY-MM-DD}/part.jsonl
 - **去重键**：`(instrument_id, metric, frequency, ts_event_ms)`  
 - **分区**：`venue=` + `date=`  
 - **instrument_id**：`fred:macro:GDP`
+
+---
+
+
+
+## `etf_iopv`（ETF 参考净值 / 日终 NAV）
+
+
+| 字段            | 类型     | 说明 |
+| ------------- | ------ | ---- |
+| （Envelope 全部） |        | `dataset=etf_iopv`；`venue` 如 `akshare`；`market_type=etf` |
+| `iopv`        | float  | 官方 IOPV，或日终单位净值（`source=nav_eod` 时） |
+| `price`       | float? | 同时刻市价（实时有；纯 NAV 可空） |
+| `premium`     | float? | `(price - iopv) / iopv`；缺价则为空 |
+| `source`      | str    | `iopv_realtime` / `nav_eod` |
+
+
+- `ts_event_ms`：实时取抓取时刻；日终 NAV 取净值日期 UTC 0 点。  
+- **去重键**：`(instrument_id, ts_event_ms, source)`  
+- **分区**：`venue=` + `date=`（无 `tf`）  
+- **instrument_id**：`akshare:etf:513300`  
+- 质量：`iopv <= 0` 的行不应入库。
 
 ---
 

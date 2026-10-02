@@ -2,7 +2,7 @@
 
 ## 目标
 
-统一采集币圈 / 美股 / 基本面 / 链上 / 另类数据，供因子研究与回测。当前已落地：币安 USDT-M 永续与 Spot、Hyperliquid（perp OHLCV/funding/trades），Alpaca 美股 OHLCV / 历史 trades / quotes，Finnhub 公司基本面，FRED 宏观序列。
+统一采集币圈 / 美股 / 基本面 / 链上 / 另类数据，供因子研究与回测。当前已落地：币安 USDT-M 永续与 Spot、Hyperliquid（perp OHLCV/funding/trades），Alpaca 美股 OHLCV / 历史 trades / quotes，Finnhub 公司基本面，FRED 宏观序列，**AkShare A 股 ETF**（日线 OHLCV / 日终 NAV / 实时 IOPV → `etf_iopv`）。
 
 ## 数据流
 
@@ -17,6 +17,11 @@ integrations/providers 下的 Finnhub / Fred（独立协议，不实现 VenueAda
   → RawArchive
   → CanonicalStore (fundamental | macro，分目录)
   → Catalog / load_fundamental | load_macro
+
+integrations/providers/akshare_etf（VenueAdapter；可选依赖 akshare）
+  → RawArchive
+  → CanonicalStore (ohlcv | etf_iopv)
+  → Catalog / load_ohlcv | load_etf_iopv
 ```
 
 存储相关代码均在 [`src/alpha/collection/storage/`](src/alpha/collection/storage/)：`canonical.py` / `catalog.py` / `query.py`。
@@ -42,7 +47,7 @@ data/catalog.sqlite
 | | [`data/raw/`](data/raw/) | [`data/canonical/`](data/canonical/) |
 |--|--------------------------|--------------------------------------|
 | 内容 | 交易所/接口**原始响应**归档 | 归一化后的研究表 |
-| 格式 | JSONL（一行一条：`ts_ingest_ms` + `payload`） | Parquet（`ohlcv` / `trade` / `quote` / `funding` / `fundamental` / `macro`） |
+| 格式 | JSONL（一行一条：`ts_ingest_ms` + `payload`） | Parquet（`ohlcv` / `trade` / `quote` / `funding` / `fundamental` / `macro` / `etf_iopv`） |
 | 用途 | 排障、复现解析、对照 Source Quirks | 因子、回测、日常查询 |
 | 谁写 | adapter 在请求/WS 收到后写入 | 解析成 canonical 模型后由 `CanonicalStore` 写入 |
 
@@ -78,7 +83,7 @@ data/catalog.sqlite
 **Python（推荐）**
 
 ```python
-from alpha.collection import load_ohlcv, load_funding, load_fundamental, load_macro, load_trades, load_quote
+from alpha.collection import load_ohlcv, load_funding, load_fundamental, load_macro, load_trades, load_quote, load_etf_iopv
 
 load_funding("data", venue="binance")
 load_ohlcv("data", venue="binance", tf="1h")
@@ -86,6 +91,7 @@ load_trades("data", venue="alpaca", symbol_raw="AAPL")
 load_quote("data", venue="alpaca", symbol_raw="AAPL")
 load_fundamental("data", venue="finnhub", symbol_raw="AAPL")
 load_macro("data", venue="fred", symbol_raw="GDP")
+load_etf_iopv("data", venue="akshare", symbol_raw="513300")
 ```
 
 **DuckDB 读单个 Parquet**

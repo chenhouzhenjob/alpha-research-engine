@@ -12,6 +12,7 @@ import pyarrow.parquet as pq
 
 from alpha.schema import (
     Envelope,
+    EtfIopvPoint,
     FundamentalPoint,
     FundingRate,
     MacroPoint,
@@ -129,6 +130,15 @@ class CanonicalStore:
             to_dict=_quote_to_dict,
         )
 
+    def write_etf_iopv(self, rows: Sequence[EtfIopvPoint]) -> int:
+        """写入 ETF IOPV/NAV，按 (instrument_id, ts_event_ms, source) 去重。"""
+        return self._write_grouped(
+            rows,
+            key_fn=lambda r: (r.instrument_id, r.ts_event_ms, r.source),
+            schema=_etf_iopv_arrow_schema(),
+            to_dict=_etf_iopv_to_dict,
+        )
+
     def _write_grouped(
         self,
         rows: Sequence[Envelope],
@@ -176,6 +186,8 @@ def _key_cols_for(row: Envelope) -> list[str]:
         return ["instrument_id", "metric", "statement", "frequency", "ts_event_ms"]
     if isinstance(row, MacroPoint):
         return ["instrument_id", "metric", "frequency", "ts_event_ms"]
+    if isinstance(row, EtfIopvPoint):
+        return ["instrument_id", "ts_event_ms", "source"]
     return ["instrument_id", "ts_event_ms"]
 
 
@@ -241,6 +253,10 @@ def _macro_to_dict(r: MacroPoint) -> dict:
 
 
 def _quote_to_dict(r: QuoteTick) -> dict:
+    return r.model_dump()
+
+
+def _etf_iopv_to_dict(r: EtfIopvPoint) -> dict:
     return r.model_dump()
 
 
@@ -368,6 +384,26 @@ def _macro_arrow_schema() -> pa.Schema:
             ("value", pa.float64()),
             ("unit", pa.string()),
             ("frequency", pa.string()),
+        ]
+    )
+
+
+def _etf_iopv_arrow_schema() -> pa.Schema:
+    return pa.schema(
+        [
+            ("schema_version", pa.int32()),
+            ("dataset", pa.string()),
+            ("venue", pa.string()),
+            ("market_type", pa.string()),
+            ("instrument_id", pa.string()),
+            ("symbol_raw", pa.string()),
+            ("ts_event_ms", pa.int64()),
+            ("ts_ingest_ms", pa.int64()),
+            ("source_seq", pa.string()),
+            ("iopv", pa.float64()),
+            ("price", pa.float64()),
+            ("premium", pa.float64()),
+            ("source", pa.string()),
         ]
     )
 

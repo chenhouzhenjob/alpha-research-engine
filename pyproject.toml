@@ -33,6 +33,9 @@ research = [
   "jupyterlab>=4.0",
   "matplotlib>=3.8",
 ]
+cn = [
+  "akshare>=1.14",
+]
 
 [project.scripts]
 alpha = "alpha.cli:main"

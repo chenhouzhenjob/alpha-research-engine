@@ -1,0 +1,13 @@
+# AkShare A 股 ETF（免费；需 pip install -e ".[cn]"）
+venue: akshare
+market_type: etf
+timeframes:
+  - 1d
+# 请求间隔（秒），避免东财限流
+request_interval_sec: 0.5
+# 日线复权："" 不复权 | qfq 前复权 | hfq 后复权
+adjust: ""
+symbols:
+  # QDII 示例：纳指 / 日经
+  - "513300"
+  - "413520"

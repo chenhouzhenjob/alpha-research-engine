@@ -94,6 +94,16 @@ class MacroPoint(Envelope):
     frequency: str
 
 
+class EtfIopvPoint(Envelope):
+    """ETF 参考净值 / 日终 NAV。iopv 存官方 IOPV 或 NAV；source 区分口径。"""
+
+    dataset: str = "etf_iopv"
+    iopv: float
+    price: Optional[float] = None
+    premium: Optional[float] = None  # (price - iopv) / iopv
+    source: str  # iopv_realtime | nav_eod
+
+
 class Instrument(BaseModel):
     """标的注册信息。"""
 

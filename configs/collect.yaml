@@ -9,6 +9,7 @@ sources:
   - binance_spot
   - hyperliquid
   - alpaca
+  - akshare
 
 # 以下为未在 source 配置中声明 timeframes 时的回落默认
 timeframes:

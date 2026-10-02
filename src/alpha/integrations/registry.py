@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from alpha.integrations.market_data import VenueAdapter
+from alpha.integrations.providers.akshare_etf import AkshareEtfProvider
 from alpha.integrations.providers.alpaca import AlpacaAdapter
 from alpha.integrations.venues.binance.market_data import BinanceAdapter
 from alpha.integrations.venues.binance.spot_market_data import BinanceSpotAdapter
@@ -15,6 +16,7 @@ MARKET_DATA_ADAPTERS = {
     "binance_spot": BinanceSpotAdapter,
     "hyperliquid": HyperliquidAdapter,
     "alpaca": AlpacaAdapter,
+    "akshare": AkshareEtfProvider,
 }
 
 

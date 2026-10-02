@@ -16,6 +16,7 @@ from alpha.collection import (
     CanonicalStore,
     Catalog,
     RawArchive,
+    load_etf_iopv,
     load_fundamental,
     load_funding,
     load_macro,
@@ -26,6 +27,7 @@ from alpha.collection import (
 from alpha.config import default_root, load_collect, load_source, load_yaml
 from alpha.features import FeatureSet, ReturnFeature, SmaFeature, compute_features, write_features
 from alpha.integrations import (
+    AkshareEtfProvider,
     AlpacaAdapter,
     FinnhubAdapter,
     FredAdapter,
@@ -38,10 +40,11 @@ from alpha.integrations.providers.fred import resolve_api_key as resolve_fred_ke
 from alpha.strategies import MovingAverageCrossStrategy
 
 # 行情 VenueAdapter；基本面/宏观走独立适配器
-_MARKET_SOURCES = frozenset({"binance_perp", "binance_spot", "hyperliquid", "alpaca"})
+_MARKET_SOURCES = frozenset({"binance_perp", "binance_spot", "hyperliquid", "alpaca", "akshare"})
 _FUNDAMENTAL_SOURCES = frozenset({"finnhub"})
 _MACRO_SOURCES = frozenset({"fred"})
 _ALL_SOURCES = _MARKET_SOURCES | _FUNDAMENTAL_SOURCES | _MACRO_SOURCES
+_ETF_IOPV_SOURCES = frozenset({"akshare"})
 
 
 def _research_features(cfg: dict[str, Any]) -> FeatureSet:
@@ -69,6 +72,7 @@ def _research_inputs(cfg: dict[str, Any], data_dir: Path) -> dict[str, pd.DataFr
         "macro": load_macro,
         "trade": load_trades,
         "quote": load_quote,
+        "etf_iopv": load_etf_iopv,
     }
     inputs: dict[str, pd.DataFrame] = {}
     for dataset, spec in input_specs.items():
@@ -85,6 +89,8 @@ def _research_inputs(cfg: dict[str, Any], data_dir: Path) -> dict[str, pd.DataFr
             kwargs["tf"] = spec["tf"]
         if dataset in {"fundamental", "macro"} and "metric" in spec:
             kwargs["metric"] = spec["metric"]
+        if dataset == "etf_iopv" and "source" in spec:
+            kwargs["source"] = spec["source"]
         rows = loaders[dataset](data_dir, **kwargs)
         inputs[dataset] = pd.DataFrame(rows)
     return inputs
@@ -295,6 +301,15 @@ def _build_adapter(source: str, cfg: dict[str, Any], raw: RawArchive | None) -> 
             symbols=list(cfg.get("symbols") or []),
             feed=cfg.get("feed", "sip"),
             adjustment=cfg.get("adjustment", "split"),
+            raw=raw,
+        )
+    if source == "akshare":
+        return create_market_data_adapter(
+            "akshare",
+            market_type=cfg.get("market_type", "etf"),
+            symbols=list(cfg.get("symbols") or []),
+            request_interval_sec=float(cfg.get("request_interval_sec", 0.5)),
+            adjust=str(cfg.get("adjust", "")),
             raw=raw,
         )
     raise SystemExit(f"未知行情 source: {source}")
@@ -717,6 +732,104 @@ async def cmd_backfill_macro(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_backfill_etf_iopv(args: argparse.Namespace) -> int:
+    """回填 ETF 日终 NAV（→ canonical/etf_iopv，source=nav_eod）。"""
+    collect = load_collect(args.config)
+    data_dir = _resolve_data_dir(collect, args.data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    catalog_path = _resolve_catalog(collect, data_dir, args.catalog)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    raw = RawArchive(data_dir)
+    store = CanonicalStore(data_dir)
+    catalog = Catalog(str(catalog_path))
+    await catalog.open()
+
+    start_ms, end_ms = _resolve_time_window(
+        args, default_days=int(collect.get("backfill_days", 7))
+    )
+    assert start_ms is not None
+    print(
+        f"[etf_iopv] 时间窗 [{_fmt_ms(start_ms)}, {_fmt_ms(end_ms)})（水位之后增量）",
+        flush=True,
+    )
+
+    sources = _resolve_sources(collect, args, default_sources=["akshare"])
+    try:
+        for v in sources:
+            if v not in _ETF_IOPV_SOURCES:
+                print(f"[{v}] 跳过 etf_iopv（仅支持 akshare）")
+                continue
+            vcfg = load_source(v)
+            adapter = _build_adapter(v, vcfg, raw)
+            if not isinstance(adapter, AkshareEtfProvider):
+                print(f"[{v}] 跳过 etf_iopv（适配器无 fetch_nav_eod）")
+                await adapter.close()
+                continue
+            symbols = list(vcfg.get("symbols") or [])
+            try:
+                for sym in symbols:
+                    inst_id = _instrument_id(v, vcfg, sym, "etf")
+                    wm = None if args.force else await catalog.get_watermark(
+                        str(vcfg["venue"]), "etf_iopv", inst_id, "nav_eod"
+                    )
+                    cursor = max(start_ms, (wm + 1) if wm is not None else start_ms)
+                    if cursor >= end_ms:
+                        print(f"[{v}] {sym} etf_iopv/nav_eod 已是最新")
+                        continue
+                    points = await adapter.fetch_nav_eod(sym, cursor, end_ms)
+                    n = store.write_etf_iopv(points)
+                    if points:
+                        await catalog.set_watermark(
+                            str(vcfg["venue"]),
+                            "etf_iopv",
+                            inst_id,
+                            max(p.ts_event_ms for p in points),
+                            "nav_eod",
+                        )
+                    print(f"[{v}] {sym} etf_iopv/nav_eod: 写入 {n} 条 (请求 {len(points)})")
+            finally:
+                await adapter.close()
+    finally:
+        await catalog.close()
+    return 0
+
+
+async def cmd_sync_etf_iopv(args: argparse.Namespace) -> int:
+    """拉取 ETF 实时价+官方 IOPV 快照写入 canonical/etf_iopv（source=iopv_realtime）。"""
+    collect = load_collect(args.config)
+    data_dir = _resolve_data_dir(collect, args.data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    catalog_path = _resolve_catalog(collect, data_dir, args.catalog)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    raw = RawArchive(data_dir)
+    store = CanonicalStore(data_dir)
+
+    sources = _resolve_sources(collect, args, default_sources=["akshare"])
+    for v in sources:
+        if v not in _ETF_IOPV_SOURCES:
+            print(f"[{v}] 跳过 sync etf_iopv（仅支持 akshare）")
+            continue
+        vcfg = load_source(v)
+        adapter = _build_adapter(v, vcfg, raw)
+        if not isinstance(adapter, AkshareEtfProvider):
+            print(f"[{v}] 跳过 sync etf_iopv（适配器无 fetch_iopv_realtime）")
+            await adapter.close()
+            continue
+        try:
+            points = await adapter.fetch_iopv_realtime(list(vcfg.get("symbols") or []))
+            n = store.write_etf_iopv(points)
+            for p in points:
+                prem = f"{p.premium:.4%}" if p.premium is not None else "n/a"
+                print(
+                    f"[{v}] {p.symbol_raw} price={p.price} iopv={p.iopv} premium={prem}"
+                )
+            print(f"[{v}] etf_iopv/iopv_realtime: 写入 {n} 条")
+        finally:
+            await adapter.close()
+    _ = catalog_path  # 与其它 collect 命令保持目录创建一致
+    return 0
+
+
 async def cmd_sync_funding(args: argparse.Namespace) -> int:
     """同步永续资金费率历史；非永续 source（如 alpaca）会跳过。"""
     collect = load_collect(args.config)
@@ -871,6 +984,13 @@ def build_parser() -> argparse.ArgumentParser:
         macro, days_help="只保留近 N 天观测；与 --start 二选一；皆无则尽量全量"
     )
 
+    etf_iopv_bf = bf_sub.add_parser("etf_iopv", help="回填 ETF 日终 NAV（AkShare → etf_iopv）")
+    _add_source_filter_args(etf_iopv_bf)
+    _add_time_window_args(
+        etf_iopv_bf,
+        days_help="近 N 天（无 --start 时用）；默认读 collect.backfill_days 或 7",
+    )
+
     sync = sub.add_parser("sync", help="增量同步")
     sync_sub = sync.add_subparsers(dest="sync_cmd", required=True)
     fund = sync_sub.add_parser("funding", help="同步资金费率")
@@ -878,6 +998,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_time_window_args(
         fund, days_help="近 N 天（无 --start 时用）；默认读 collect.backfill_days 或 7"
     )
+    etf_iopv_sync = sync_sub.add_parser("etf_iopv", help="同步 ETF 实时价+官方 IOPV（AkShare）")
+    _add_source_filter_args(etf_iopv_sync)
 
     st = sub.add_parser("stream", help="实时流")
     st_sub = st.add_subparsers(dest="stream_cmd", required=True)
@@ -918,8 +1040,12 @@ def main(argv: list[str] | None = None) -> None:
         code = asyncio.run(cmd_backfill_fundamental(args))
     elif args.command == "collect" and args.collect_cmd == "backfill" and args.backfill_cmd == "macro":
         code = asyncio.run(cmd_backfill_macro(args))
+    elif args.command == "collect" and args.collect_cmd == "backfill" and args.backfill_cmd == "etf_iopv":
+        code = asyncio.run(cmd_backfill_etf_iopv(args))
     elif args.command == "collect" and args.collect_cmd == "sync" and args.sync_cmd == "funding":
         code = asyncio.run(cmd_sync_funding(args))
+    elif args.command == "collect" and args.collect_cmd == "sync" and args.sync_cmd == "etf_iopv":
+        code = asyncio.run(cmd_sync_etf_iopv(args))
     elif args.command == "collect" and args.collect_cmd == "stream" and args.stream_cmd == "trades":
         code = asyncio.run(cmd_stream_trades(args))
     else:

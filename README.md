@@ -8,6 +8,7 @@
 - **Alpaca 美股**：OHLCV、历史 trades、L1 quotes（默认 `feed: sip`）
 - **Finnhub**：公司基本面 → `data/canonical/fundamental/`
 - **FRED**：宏观序列 → `data/canonical/macro/`（与公司基本面分目录）
+- **AkShare A 股 ETF**（可选 `pip install -e ".[cn]"`）：日线 OHLCV、日终 NAV、实时价+官方 IOPV → `data/canonical/etf_iopv/`
 - **不使用 CCXT**，直连原生 REST/WS
 - 存储：raw JSONL + canonical Parquet + SQLite catalog
 
@@ -18,6 +19,8 @@ cd alpha-research-engine
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+# A 股 ETF 数据（AkShare）
+pip install -e ".[cn]"
 ```
 
 ## 常用命令
@@ -37,6 +40,12 @@ alpha collect backfill ohlcv --venue binance --market-type perp --tf 1h --start 
 # 回填美股日线（先配置 .env 中的 ALPACA_* 密钥）
 alpha collect catalog refresh-instruments --venue alpaca
 alpha collect backfill ohlcv --venue alpaca --tf 1d --days 30
+
+# A 股 ETF（AkShare；见 configs/collection/sources/akshare.yaml）
+alpha collect catalog refresh-instruments --venue akshare
+alpha collect backfill ohlcv --venue akshare --tf 1d --days 365
+alpha collect backfill etf_iopv --venue akshare --days 365
+alpha collect sync etf_iopv --venue akshare
 
 # 美股历史成交 / L1 报价（体量大；可按月增量，水位会接着拉）
 alpha collect backfill trade --venue alpaca --days 1
