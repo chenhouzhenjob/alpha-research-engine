@@ -33,6 +33,12 @@
 | `external_call_ledger` | 运维 | 外部调用（RPC、HTTP API）按天汇总的额度账本 |
 | `chain_state_cache` | 运维 | 可变链上状态（余额、slot0 等）的短时缓存 |
 | `contract_registry` | 协议识别 | 合约地址的识别结果（属于哪个家族、实例、角色），永久缓存 |
+| `wallets` | 钱包分析 | 分析过的钱包 |
+| `wallet_sync_ranges` | 钱包分析 | 每个钱包按数据层已覆盖的区块区间集合（不是单一水位线） |
+| `wallet_transfers` | 钱包分析 | 地址视角的转账：索引源和内部交易源的原始结果，映射成统一形态 |
+| `wallet_events` | 钱包分析 | 标准事件（派生数据，可从 `chain_txs` + `chain_logs` + `wallet_transfers` 整体重建） |
+| `wallet_tx_decodes` | 钱包分析 | 每笔交易对每个视角钱包的解码摘要（告警、未识别合约、解码器版本） |
+| `wallet_sync_jobs` | 钱包分析 | 同步和重新解码任务（状态机、断点、预算） |
 
 ## 2. 关系概览
 
@@ -44,10 +50,19 @@ erDiagram
     instruments ||--o{ pool_ohlcv : "标的的K线"
     chain_txs ||--o{ chain_logs : "回执里的日志"
     tokens ||--o{ price_points : "token 的历史价格"
+    wallets ||--o{ wallet_sync_ranges : "已覆盖区间"
+    wallets ||--o{ wallet_transfers : "钱包视角的转账"
+    wallets ||--o{ wallet_events : "钱包视角的事件"
+    wallets ||--o{ wallet_tx_decodes : "钱包视角的解码摘要"
+    wallets ||--o{ wallet_sync_jobs : "同步任务"
+    chain_txs ||--o{ wallet_transfers : "所属交易"
+    chain_txs ||--o{ wallet_events : "所属交易"
 ```
 
 `chain_logs.(chain, tx_hash)` → `chain_txs`、`price_points.(chain, token_address)` → `tokens` 都是逻辑外键，不加数据库约束：
-回执可能先于索引源到达，价格可能先于 token 元数据写入，不希望被写入顺序卡住。`block_times`、`abi_cache`、
+回执可能先于索引源到达，价格可能先于 token 元数据写入，不希望被写入顺序卡住。
+钱包分析的 6 张表之间、与 `chain_txs` 之间同样只有逻辑外键：`wallet_events` 读取时按 `(chain, tx_hash)` 外连接
+`chain_txs` 取块内序号排序，块内序号未知时排在同一区块的最后。`block_times`、`abi_cache`、
 `external_call_ledger`、`chain_state_cache` 是独立的缓存/运维表，与其他表没有关联。
 
 `pool_candidates.pool_address` 与 `pool_metrics_history.pool_address` 是逻辑外键（同 `chain` 下的池子地址一一对应），
@@ -421,7 +436,7 @@ token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的�
 **约束**：主键 `(chain, key)`。
 
 
-## contract_registry
+## 17. contract_registry
 
 合约识别结果，每个地址一行，永久缓存（钱包分析 M2 步骤 12）。识别方式由浅到深：实例配置写明的角色地址、
 注册表发现（例如 Comptroller.getAllMarkets）、已有表（pool_candidates）、CREATE2 本地校验、字节码判断 EOA；
@@ -465,3 +480,201 @@ token 历史价格。**只缓存已经完全过去的时间桶**（未收盘的�
 | `auto` | 自动识别，直接生效，可被新的自动结果刷新 |
 | `pending_review` | LLM 判断，报告中标注"待复核" |
 | `confirmed` | 人工确认，任何自动流程都不能覆盖 |
+
+## 18. wallets
+
+分析过的钱包，第一次同步时登记（钱包分析 M3，迁移 `0009_wallet_data`）。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 链标识；联合主键之一 |
+| address | VARCHAR(42) | 否 | 无 | 钱包地址；联合主键之一 |
+| label | VARCHAR(128) | 是 | NULL | 人工备注；未填为 NULL |
+| entity_group | VARCHAR(64) | 是 | NULL | 同一主体的钱包分组；M3 只存不参与计算，未分组为 NULL |
+| created_at | TIMESTAMPTZ | 否 | `now()` | 首次同步时间 |
+
+**约束**：主键 `(chain, address)`。
+
+## 19. wallet_sync_ranges
+
+每个钱包按数据层已覆盖的区块区间（闭区间）。写入时与同层重叠或相邻的区间合并成一条，所以同层区间互不重叠、
+互不相邻；下次同步只请求没覆盖的部分。区间终点截到数据源实际返回到的区块，不用请求的终点，避免索引源落后造成永久空洞。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 联合主键之一 |
+| address | VARCHAR(42) | 否 | 无 | 钱包地址；联合主键之一 |
+| layer | VARCHAR(16) | 否 | 无 | 数据层，取值见下方枚举；联合主键之一 |
+| from_block | BIGINT | 否 | 无 | 区间起点（含）；联合主键之一 |
+| to_block | BIGINT | 否 | 无 | 区间终点（含） |
+| source | VARCHAR(32) | 否 | 无 | 数据源（`ankr` / `nodereal` 等）；合并后取最近一次写入的来源 |
+| synced_at | TIMESTAMPTZ | 否 | `now()` | 写入时间 |
+
+**约束**：主键 `(chain, address, layer, from_block)`；检查约束 `to_block >= from_block`。
+
+#### layer
+
+| 值 | 含义 |
+|---|---|
+| `transfers` | 地址索引源的交易和代币转账 |
+| `internal` | 内部交易源的内部转账 |
+| `receipts` | 区间内需要回执的交易已全部取到回执 |
+
+## 20. wallet_transfers
+
+地址视角的转账：索引源、内部交易源返回的原始结果，映射成统一形态。原始数据不可变，主键已存在时忽略新写入
+（不同来源对同一条转账以先到的为准）。两个被分析的钱包之间的同一笔转账各存一份视角，所以主键带 `wallet_address`。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 联合主键之一 |
+| wallet_address | VARCHAR(42) | 否 | 无 | 从哪个钱包的视角查到的；联合主键之一 |
+| tx_hash | VARCHAR(66) | 否 | 无 | 所属交易；联合主键之一 |
+| transfer_key | VARCHAR(64) | 否 | 无 | 交易内去重键：交易本身为 `tx`，代币转账为 `log:<日志序号>`，内部转账为 `internal:<调用路径或序号>`；联合主键之一 |
+| kind | VARCHAR(16) | 否 | 无 | 资产形态，取值见下方枚举 |
+| token_address | VARCHAR(42) | 是 | NULL | 代币合约；原生币（`external` / `internal`）为 NULL |
+| token_id | NUMERIC(78,0) | 是 | NULL | NFT 编号；同质化代币和原生币为 NULL |
+| amount_raw | NUMERIC(78,0) | 否 | 无 | 数量（最小单位）；ERC721 为 1 |
+| from_address | VARCHAR(42) | 否 | 无 | 转出方 |
+| to_address | VARCHAR(42) | 否 | 无 | 转入方 |
+| direction | VARCHAR(8) | 否 | 无 | 相对 `wallet_address` 的方向，取值见下方枚举 |
+| block_number | BIGINT | 否 | 无 | 所在区块 |
+| source | VARCHAR(32) | 否 | 无 | 数据源（`ankr` / `nodereal` 等） |
+| fetched_at | TIMESTAMPTZ | 否 | `now()` | 写入时间 |
+
+**约束**：主键 `(chain, wallet_address, tx_hash, transfer_key)`；索引 `(chain, wallet_address, block_number)`。
+
+#### kind
+
+| 值 | 含义 |
+|---|---|
+| `external` | 交易本身携带的原生币（`tx.value`） |
+| `internal` | 合约内部调用转出的原生币，回执里没有日志 |
+| `erc20` | 同质化代币 |
+| `erc721` | 非同质化代币，数量恒为 1 |
+| `erc1155` | 多代币标准，带编号和数量 |
+
+#### direction
+
+| 值 | 含义 |
+|---|---|
+| `in` | 转入钱包 |
+| `out` | 从钱包转出 |
+| `self` | 钱包转给自己 |
+
+## 21. wallet_events
+
+标准事件（物化的派生数据）。一笔交易对一个视角钱包的事件整体替换写入（先删后写，与 `wallet_tx_decodes`
+同一事务），可以随时从 `chain_txs` + `chain_logs` + `wallet_transfers` 重新解码重建。分类取值以
+`alpha_protocols.decoding.taxonomy` 的分类表为准，这里存文本。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 联合主键之一 |
+| tx_hash | VARCHAR(66) | 否 | 无 | 联合主键之一 |
+| seq | INTEGER | 否 | 无 | 交易内序号，同一输入稳定；联合主键之一 |
+| subject_wallet | VARCHAR(42) | 否 | 无 | 视角钱包；联合主键之一 |
+| block_number | BIGINT | 否 | 无 | 所在区块（排序、窗口过滤用） |
+| event_type | VARCHAR(24) | 否 | 无 | 分类表的事件类型（`trade`、`deposit`、`transfer`……） |
+| event_subtype | VARCHAR(24) | 否 | 无 | 分类表的子类型 |
+| direction | VARCHAR(8) | 否 | 无 | `in`（资产流入钱包）/ `out`（流出）/ `neutral`（无方向的状态事件） |
+| asset | VARCHAR(42) | 是 | NULL | 资产地址；原生币为 `native`；不涉及资产的状态事件为 NULL |
+| amount_raw | NUMERIC(78,0) | 是 | NULL | 数量（最小单位）；纯状态且无数量时为 NULL |
+| token_id | NUMERIC(78,0) | 是 | NULL | NFT 编号；否则 NULL |
+| counterparty_address | VARCHAR(42) | 是 | NULL | 对手方；未知为 NULL |
+| family | VARCHAR(32) | 是 | NULL | 协议家族；兜底事件为 NULL |
+| instance_key | VARCHAR(64) | 是 | NULL | 协议实例；未识别或未命名分叉为 NULL |
+| position_key | VARCHAR(160) | 是 | NULL | 持仓键 `<chain>:<instance>:<kind>:<id>`；不涉及持仓为 NULL |
+| coverage_tier | VARCHAR(2) | 否 | 无 | 覆盖等级 `T0`（只有资产流动）~ `T3`（持仓可估值） |
+| confidence | VARCHAR(8) | 否 | 无 | `exact`（来自日志或索引数据）/ `inferred`（推断，例如原生币推断钩子） |
+| claimed_flow_ids | INTEGER[] | 否 | `'{}'` | 认领的流水序号；空表示没有资产流动的状态事件 |
+| extra | JSONB | 否 | `'{}'` | 家族特有字段（tick 区间、流动性、负债余额……） |
+| decoder_version | VARCHAR(32) | 否 | 无 | 产出这条事件的解码器：`<family>@<版本>` 或 `generic@<版本>` |
+
+**约束**：主键 `(chain, tx_hash, seq, subject_wallet)`；索引 `(chain, subject_wallet, block_number)`、
+`(chain, subject_wallet, position_key)`。
+
+## 22. wallet_tx_decodes
+
+每笔交易对每个视角钱包的解码摘要。告警和未识别合约是交易级信息，放在事件行里会重复；`decoder_versions`
+用来判断是否需要重新解码。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| chain | VARCHAR(16) | 否 | 无 | 联合主键之一 |
+| tx_hash | VARCHAR(66) | 否 | 无 | 联合主键之一 |
+| subject_wallet | VARCHAR(42) | 否 | 无 | 视角钱包；联合主键之一 |
+| block_number | BIGINT | 否 | 无 | 所在区块 |
+| path | VARCHAR(8) | 否 | 无 | 解码路径，取值见下方枚举 |
+| succeeded | BOOLEAN | 否 | 无 | 交易是否成功 |
+| internal_available | BOOLEAN | 否 | 无 | 解码时是否有内部交易数据 |
+| decoder_versions | JSONB | 否 | `'{}'` | 参与解码的各家族版本，例如 `{"uniswap_v3_like": 2, "generic": 1}` |
+| unclaimed_flows | INTEGER | 否 | 0 | 未认领流水条数（应为 0） |
+| unknown_contracts | VARCHAR(42)[] | 否 | `'{}'` | 交易里出现的未识别合约 |
+| warnings | JSONB | 否 | `'[]'` | 告警列表 `[{code, detail}]` |
+| decoded_at | TIMESTAMPTZ | 否 | `now()` | 最近一次解码时间 |
+
+**约束**：主键 `(chain, tx_hash, subject_wallet)`；索引 `(chain, subject_wallet, block_number)`。
+
+#### path
+
+| 值 | 含义 |
+|---|---|
+| `receipt` | 回执路径：有日志，能识别协议语义 |
+| `index` | 索引路径：只凭索引源的转账解码，产出 T0 事件（第三方发起、只涉及转账的交易） |
+
+## 23. wallet_sync_jobs
+
+同步和重新解码任务。同一钱包同时只能有一个进行中的任务：建任务时由部分唯一索引兜底，执行期间另由
+Postgres advisory lock（`alpha_storage.locks`，挂在执行器的专用连接上，进程退出自动释放）保证互斥。
+状态转移是否合法由 wallet-analyzer 的任务层判断，见 M3 实施规划 5.7。
+
+| 字段 | 类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| id | BIGSERIAL | 否 | 自增 | 主键 |
+| chain | VARCHAR(16) | 否 | 无 | 链 |
+| address | VARCHAR(42) | 否 | 无 | 钱包 |
+| kind | VARCHAR(16) | 否 | 无 | 任务类型，取值见下方枚举 |
+| depth | VARCHAR(16) | 否 | 无 | 同步深度，取值见下方枚举；重新解码记 `decoded` |
+| state | VARCHAR(20) | 否 | 无 | 状态，取值见下方枚举 |
+| checkpoint | JSONB | 否 | `'{}'` | 断点：`{phase, cursor, integrity, …}`，每次整体替换 |
+| budget_usd | NUMERIC(12,4) | 否 | 无 | 本次预算（美元） |
+| estimated_usd | NUMERIC(12,4) | 是 | NULL | 预估成本（美元）；预估前为 NULL |
+| used_usd | NUMERIC(12,4) | 否 | 0 | 已消耗（美元），由额度账本按 `job_ref` 汇总后写入 |
+| error | TEXT | 是 | NULL | 最近一次失败原因；没有为 NULL |
+| session_id | BIGINT | 是 | NULL | 发起的会话；M3 恒为 NULL，M4 使用 |
+| created_at | TIMESTAMPTZ | 否 | `now()` | 创建时间 |
+| updated_at | TIMESTAMPTZ | 否 | `now()` | 最后更新时间 |
+| finished_at | TIMESTAMPTZ | 是 | NULL | 进入终态（`done` / `cancelled`）的时间；未结束为 NULL |
+
+**约束**：部分唯一索引 `uq_wallet_sync_jobs_active (chain, address) WHERE state IN ('estimating','awaiting_confirm','queued','running','rate_limited','paused')`；
+索引 `(chain, address, created_at)`。`external_call_ledger.job_ref` 记的是本表的 `id`（逻辑关联）。
+
+#### kind
+
+| 值 | 含义 |
+|---|---|
+| `backfill` | 同步：拉数据、取回执、解码、对账 |
+| `redecode` | 重新解码：只读库里的原始数据，零 RPC |
+
+#### depth
+
+| 值 | 含义 |
+|---|---|
+| `transfers` | 只拉索引源和内部交易源，只消耗索引源额度 |
+| `decoded` | 再加回执、识别、全部解码、完整性对账 |
+| `full` | 再加当前估值（持仓 + 余额） |
+
+#### state
+
+| 值 | 含义 |
+|---|---|
+| `estimating` | 正在预估成本（进行中） |
+| `awaiting_confirm` | 预估超过预算，等待确认（进行中） |
+| `queued` | 已批准，等执行器领取（进行中） |
+| `running` | 执行中；进程被杀时也停在这里，下次拿到锁时按 `paused` 处理（进行中） |
+| `rate_limited` | 限速重试用尽或额度耗尽，已保存断点（进行中） |
+| `paused` | 进程中断，已保存断点（进行中） |
+| `failed` | 不可恢复的错误，修复后可以 resume；不算进行中，也不是终态 |
+| `done` | 全部阶段完成（终态） |
+| `cancelled` | 放弃或被新任务替代（终态） |

@@ -10,6 +10,7 @@ from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     Float,
     Index,
@@ -23,7 +24,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -370,3 +371,143 @@ class ContractRegistryRow(Base):
     evidence: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 识别依据
     identified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+# ---------------------------------------------------------------------------
+# 钱包分析 M3（迁移 0009_wallet_data，设计见 M3 实施规划第 6 节）
+# 地址、哈希小写；金额 NUMERIC(78,0) 存最小单位的原始整数。枚举取值见 repositories/wallet_*.py。
+# ---------------------------------------------------------------------------
+
+# 同步任务"进行中"的状态：同一钱包同时只能有一个（部分唯一索引）。与 WalletJobState.active() 保持一致
+WALLET_JOB_ACTIVE_STATES_SQL = "state IN ('estimating','awaiting_confirm','queued','running','rate_limited','paused')"
+
+
+class WalletRow(Base):
+    """分析过的钱包；第一次同步时登记。"""
+
+    __tablename__ = "wallets"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    address: Mapped[str] = mapped_column(String(42), primary_key=True)
+    label: Mapped[str | None] = mapped_column(String(128))  # 人工备注；未填为 NULL
+    entity_group: Mapped[str | None] = mapped_column(String(64))  # 同一主体的钱包分组；M3 只存不算
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class WalletSyncRangeRow(Base):
+    """已覆盖的区块区间（闭区间）；同一 (钱包, 数据层) 的区间写入时合并，彼此不重叠、不相邻。"""
+
+    __tablename__ = "wallet_sync_ranges"
+    __table_args__ = (CheckConstraint("to_block >= from_block", name="ck_wallet_sync_ranges_order"),)
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    address: Mapped[str] = mapped_column(String(42), primary_key=True)
+    layer: Mapped[str] = mapped_column(String(16), primary_key=True)  # transfers/internal/receipts
+    from_block: Mapped[int] = mapped_column(BigInteger, primary_key=True)  # 含
+    to_block: Mapped[int] = mapped_column(BigInteger)  # 含；截到数据源实际返回到的区块
+    source: Mapped[str] = mapped_column(String(32))  # ankr/nodereal/…；合并后取最近一次写入的来源
+    synced_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class WalletTransferRow(Base):
+    """地址视角的转账：索引源、内部交易源返回的原始结果，映射成统一形态。不可变，重复写入忽略。"""
+
+    __tablename__ = "wallet_transfers"
+    __table_args__ = (Index("ix_wallet_transfers_block", "chain", "wallet_address", "block_number"),)
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    wallet_address: Mapped[str] = mapped_column(String(42), primary_key=True)  # 从哪个钱包的视角查到的
+    tx_hash: Mapped[str] = mapped_column(String(66), primary_key=True)
+    transfer_key: Mapped[str] = mapped_column(String(64), primary_key=True)  # tx / log:<序号> / internal:<路径>
+    kind: Mapped[str] = mapped_column(String(16))  # external/internal/erc20/erc721/erc1155
+    token_address: Mapped[str | None] = mapped_column(String(42))  # 原生币为 NULL
+    token_id: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # NFT 编号；同质化代币为 NULL
+    amount_raw: Mapped[Decimal] = mapped_column(Numeric(78, 0))  # 最小单位；ERC721 为 1
+    from_address: Mapped[str] = mapped_column(String(42))
+    to_address: Mapped[str] = mapped_column(String(42))
+    direction: Mapped[str] = mapped_column(String(8))  # 相对 wallet_address：in/out/self
+    block_number: Mapped[int] = mapped_column(BigInteger)
+    source: Mapped[str] = mapped_column(String(32))  # 数据源
+    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class WalletEventRow(Base):
+    """标准事件（物化的派生数据）：一笔交易的事件整体替换写入，可从原始数据整体重建。"""
+
+    __tablename__ = "wallet_events"
+    __table_args__ = (
+        Index("ix_wallet_events_block", "chain", "subject_wallet", "block_number"),
+        Index("ix_wallet_events_position", "chain", "subject_wallet", "position_key"),
+    )
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String(66), primary_key=True)
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True)  # 交易内序号，同一输入稳定
+    subject_wallet: Mapped[str] = mapped_column(String(42), primary_key=True)  # 视角钱包
+    block_number: Mapped[int] = mapped_column(BigInteger)
+    event_type: Mapped[str] = mapped_column(String(24))  # M2 分类表的事件类型
+    event_subtype: Mapped[str] = mapped_column(String(24))  # M2 分类表的子类型
+    direction: Mapped[str] = mapped_column(String(8))  # in/out/neutral
+    asset: Mapped[str | None] = mapped_column(String(42))  # 资产地址；原生币为 native；纯状态事件为 NULL
+    amount_raw: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # 最小单位；纯状态且无数量为 NULL
+    token_id: Mapped[Decimal | None] = mapped_column(Numeric(78, 0))  # NFT 编号；否则 NULL
+    counterparty_address: Mapped[str | None] = mapped_column(String(42))  # 对手方；未知为 NULL
+    family: Mapped[str | None] = mapped_column(String(32))  # 协议家族；兜底事件为 NULL
+    instance_key: Mapped[str | None] = mapped_column(String(64))  # 协议实例；未识别或未命名分叉为 NULL
+    position_key: Mapped[str | None] = mapped_column(String(160))  # <chain>:<instance>:<kind>:<id>；无持仓为 NULL
+    coverage_tier: Mapped[str] = mapped_column(String(2))  # T0~T3
+    confidence: Mapped[str] = mapped_column(String(8))  # exact/inferred
+    claimed_flow_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer), server_default=text("'{}'"))  # 空为状态事件
+    extra: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 家族特有字段
+    decoder_version: Mapped[str] = mapped_column(String(32))  # <family>@<版本> 或 generic@<版本>
+
+
+class WalletTxDecodeRow(Base):
+    """每笔交易的解码摘要（交易级的告警、未识别合约、解码器版本），与该交易的事件同一事务写入。"""
+
+    __tablename__ = "wallet_tx_decodes"
+    __table_args__ = (Index("ix_wallet_tx_decodes_block", "chain", "subject_wallet", "block_number"),)
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String(66), primary_key=True)
+    subject_wallet: Mapped[str] = mapped_column(String(42), primary_key=True)
+    block_number: Mapped[int] = mapped_column(BigInteger)
+    path: Mapped[str] = mapped_column(String(8))  # receipt/index
+    succeeded: Mapped[bool] = mapped_column(Boolean)  # 交易是否成功
+    internal_available: Mapped[bool] = mapped_column(Boolean)  # 解码时是否有内部交易数据
+    decoder_versions: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # {家族: 版本}
+    unclaimed_flows: Mapped[int] = mapped_column(Integer, server_default="0")  # 未认领流水条数，应为 0
+    unknown_contracts: Mapped[list[str]] = mapped_column(ARRAY(String(42)), server_default=text("'{}'"))
+    warnings: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))  # [{code, detail}]
+    decoded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class WalletSyncJobRow(Base):
+    """同步和重新解码任务；状态机见 M3 实施规划 5.7，同一钱包同时只有一个进行中的任务。"""
+
+    __tablename__ = "wallet_sync_jobs"
+    __table_args__ = (
+        Index(
+            "uq_wallet_sync_jobs_active",
+            "chain",
+            "address",
+            unique=True,
+            postgresql_where=text(WALLET_JOB_ACTIVE_STATES_SQL),
+        ),
+        Index("ix_wallet_sync_jobs_wallet", "chain", "address", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    chain: Mapped[str] = mapped_column(String(16))
+    address: Mapped[str] = mapped_column(String(42))
+    kind: Mapped[str] = mapped_column(String(16))  # backfill/redecode
+    depth: Mapped[str] = mapped_column(String(16))  # transfers/decoded/full；重新解码记 decoded
+    state: Mapped[str] = mapped_column(String(20))  # 见 WalletJobState
+    checkpoint: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # {phase, cursor, integrity…}
+    budget_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))  # 本次预算（美元）
+    estimated_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))  # 预估成本；预估前为 NULL
+    used_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4), server_default="0")  # 已消耗（美元）
+    error: Mapped[str | None] = mapped_column(Text)  # 最近一次失败原因；无为 NULL
+    session_id: Mapped[int | None] = mapped_column(BigInteger)  # 发起的会话；M3 恒为 NULL
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))  # 进入 done/cancelled 的时间

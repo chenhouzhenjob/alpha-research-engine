@@ -8,7 +8,7 @@
 
 | 步骤 | 状态 | 说明 |
 |---|---|---|
-| — | 未开始 | 规划待评审 |
+| 3 迁移 0009、仓储、锁 | ✅ 2026-10-02（未提交） | 迁移 `0009_wallet_data`（6 张表，本地库往返验证通过）、ORM 模型、仓储 `wallets`（含覆盖区间合并和 `uncovered` 纯函数）/ `wallet_transfers` / `wallet_decodes`（事件 + 摘要同事务整体替换）/ `wallet_sync_jobs`（建任务冲突抛 `ActiveJobExistsError`，在 savepoint 里回滚）、`alpha_storage.locks`（会话级 advisory lock），已同步 `SCHEMA.md`；12 个新测试。实现中的细化见第 6 节末尾 |
 
 ## 1. 目标与原则
 
@@ -511,6 +511,11 @@ apps/wallet-analyzer/
 **约束**：部分唯一索引 `(chain, address) WHERE state IN ('estimating','awaiting_confirm','queued','running','rate_limited','paused')`；索引 `(chain, address, created_at)`。与设计文档 6.1 的差异：唯一性按钱包而不是按 `(钱包, depth)`，因为不同深度的任务写的是同一批表，不能并行；成本字段用美元（见 5.2）。
 
 额度账本 `external_call_ledger` 已有 `job_ref` 字段，任务执行时把 `job_ref` 设为 `wallet_sync_jobs.id`。
+
+**步骤 3 实现中的细化**（已同步 `SCHEMA.md`）：
+- `wallet_sync_ranges` 加检查约束 `to_block >= from_block`；合并后的区间 `source` 取最近一次写入的来源；
+- `wallet_events` 没有块内序号，读取时外连接 `chain_txs.tx_index` 排序（区块 → 块内序号，未知排后 → 交易哈希 → 交易内序号）。同一区块里先开仓后平仓的两笔交易靠这个顺序不颠倒，所以 `transfers` 阶段写 `chain_txs` 时要尽量带上索引源给的块内序号；
+- 存储层的事件记录只存字符串形态的分类，不依赖 `alpha_protocols`；M2 标准事件（`NormalizedEvent`）到事件行的映射放在 wallet-analyzer 的解码阶段（步骤 7）。
 
 ## 7. 验证
 
